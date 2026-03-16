@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>IWM Cash-Secured Put Dashboard</title>
+  <title>CSP Options Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     :root {
@@ -301,7 +301,7 @@
 
 <header>
   <div class="hdr-left">
-    <h1>IWM <span>/ Cash-Secured Put Dashboard</span></h1>
+    <h1 id="hdrTitle">IWM <span>/ Cash-Secured Put Dashboard</span></h1>
     <div class="api-status">
       <span class="status-dot" id="statusDot"></span>
       <span id="statusText">Fetching price…</span>
@@ -309,7 +309,7 @@
   </div>
   <div class="price-box">
     <div>
-      <div class="price-ticker">IWM · iShares Russell 2000 ETF</div>
+      <div class="price-ticker" id="hdrSubtitle">IWM · iShares Russell 2000 ETF</div>
       <div class="price-val" id="livePrice">—</div>
       <div class="price-chg" id="priceChange">—</div>
       <div class="price-time" id="priceTime"></div>
@@ -323,6 +323,27 @@
 
 <!-- Config bar: only global params -->
 <div class="config-bar">
+  <div class="cfg-field">
+    <label>Ticker</label>
+    <select id="cfgTicker" onchange="changeTicker(this.value)" style="width:120px;">
+      <optgroup label="ETFs">
+        <option value="IWM"  selected>IWM</option>
+        <option value="QQQ">QQQ</option>
+        <option value="SPY">SPY</option>
+        <option value="GLD">GLD</option>
+        <option value="DIA">DIA</option>
+      </optgroup>
+      <optgroup label="Stocks">
+        <option value="NVDA">NVDA</option>
+        <option value="AAPL">AAPL</option>
+        <option value="MSFT">MSFT</option>
+        <option value="TSLA">TSLA</option>
+        <option value="AMZN">AMZN</option>
+        <option value="META">META</option>
+      </optgroup>
+    </select>
+  </div>
+  <div class="cfg-divider"></div>
   <div class="cfg-field">
     <label>Days to Expiry (DTE)</label>
     <input type="number" id="cfgDTE" value="30" min="1" max="365" />
@@ -479,7 +500,7 @@
   <div id="tab-content-buywrite" class="tab-content" style="display:none;">
     <div class="wheel-header">
       <div class="wheel-flow">
-        <div class="wf-step wf-cc">① Buy IWM Shares</div>
+        <div class="wf-step wf-cc" id="bwFlowStep1">① Buy IWM Shares</div>
         <div class="wf-arrow">→</div>
         <div class="wf-step wf-csp">② Sell Covered Call</div>
         <div class="wf-arrow">→</div>
@@ -503,7 +524,7 @@
       <thead>
         <tr>
           <th>Scenario</th>
-          <th>IWM Price</th>
+          <th id="scenariosPriceHeader">Price</th>
           <th>% Move</th>
           <th>Aggressive P&amp;L</th>
           <th>Moderate P&amp;L</th>
@@ -523,12 +544,58 @@
   <div id="riskDashboard"></div>
 </main>
 
-<footer>IWM CSP Dashboard · Prices via Yahoo Finance · For educational purposes only · Not financial advice</footer>
+<footer id="footerText">CSP Options Dashboard · Prices via Yahoo Finance · For educational purposes only · Not financial advice</footer>
 
 <script>
 // ── State ────────────────────────────────────────────────────────────────────
 let currentPrice = null;
+let currentTicker = 'IWM';
 let charts = {};
+
+// Ticker metadata: name, description, default IV suggestion
+const TICKER_INFO = {
+  'IWM':  { name: 'iShares Russell 2000 ETF',      desc: 'Small-Cap US Equities',        defaultIV: 22 },
+  'QQQ':  { name: 'Invesco Nasdaq-100 ETF',         desc: 'Large-Cap Tech / Growth',      defaultIV: 20 },
+  'SPY':  { name: 'SPDR S&P 500 ETF',               desc: 'Large-Cap Broad Market',       defaultIV: 15 },
+  'GLD':  { name: 'SPDR Gold Shares',               desc: 'Gold Commodity ETF',            defaultIV: 13 },
+  'DIA':  { name: 'SPDR Dow Jones Ind. Avg. ETF',   desc: 'Dow 30 Blue Chips',            defaultIV: 14 },
+  'NVDA': { name: 'NVIDIA Corporation',             desc: 'Semiconductor / AI · High IV', defaultIV: 50 },
+  'AAPL': { name: 'Apple Inc.',                     desc: 'Consumer Tech',                defaultIV: 25 },
+  'MSFT': { name: 'Microsoft Corporation',          desc: 'Enterprise Tech / Cloud',      defaultIV: 22 },
+  'TSLA': { name: 'Tesla Inc.',                     desc: 'EV / Energy · Very High IV',   defaultIV: 55 },
+  'AMZN': { name: 'Amazon.com Inc.',                desc: 'E-Commerce / Cloud',           defaultIV: 28 },
+  'META': { name: 'Meta Platforms Inc.',            desc: 'Social Media / AI',            defaultIV: 30 },
+};
+
+function changeTicker(ticker) {
+  currentTicker = ticker;
+  currentPrice  = null;
+  // Remove any stale manual price row from previous ticker
+  const stale = document.getElementById('manualPriceRow');
+  if (stale) stale.remove();
+  // Update IV suggestion for selected ticker
+  const info = TICKER_INFO[ticker] || {};
+  if (info.defaultIV) document.getElementById('cfgIV').value = info.defaultIV;
+  // Update header
+  updateHeaderForTicker(ticker);
+  // Re-fetch price for the new ticker
+  fetchPrice();
+}
+
+function updateHeaderForTicker(ticker) {
+  const info = TICKER_INFO[ticker] || { name: ticker, desc: '' };
+  document.getElementById('hdrTitle').innerHTML =
+    `${ticker} <span>/ Cash-Secured Put Dashboard</span>`;
+  document.getElementById('hdrSubtitle').textContent =
+    `${ticker} · ${info.name}`;
+  document.getElementById('scenariosPriceHeader').textContent =
+    `${ticker} Price`;
+  document.getElementById('footerText').textContent =
+    `${ticker} CSP Dashboard · Prices via Yahoo Finance · For educational purposes only · Not financial advice`;
+  document.title = `${ticker} CSP Dashboard`;
+  const bwStep = document.getElementById('bwFlowStep1');
+  if (bwStep) bwStep.textContent = `① Buy ${ticker} Shares`;
+}
 
 // Target deltas for each strategy (put delta is negative)
 const STRATEGIES = [
@@ -790,7 +857,7 @@ function renderPnLChart(computed, S) {
           bodyFont: { size: 14, family: 'monospace' },
           padding: 14,
           callbacks: {
-            title: items => `IWM @ $${parseFloat(items[0].label).toFixed(2)}`,
+            title: items => `${currentTicker} @ $${parseFloat(items[0].label).toFixed(2)}`,
             label: item => {
               const v = item.raw;
               const name = item.dataset.label.split('(')[0].trim();
@@ -809,7 +876,7 @@ function renderPnLChart(computed, S) {
             maxRotation: 0,
             callback: (_, i) => `$${parseFloat(labels[i]).toFixed(0)}`
           },
-          title: { display: true, text: 'IWM Price at Expiration', color: '#8b949e', font: { size: 13 }, padding: { top: 10 } }
+          title: { display: true, text: `${currentTicker} Price at Expiration`, color: '#8b949e', font: { size: 13 }, padding: { top: 10 } }
         },
         y: {
           grid: { color: '#1c2330' },
@@ -1088,7 +1155,7 @@ function renderBuyWriteSection(S, T, r, sigma, DTE, contracts) {
 
       <div class="bw-cost-row">
         <div class="wa-item">
-          <div class="lbl">Buy IWM @</div>
+          <div class="lbl">Buy ${currentTicker} @</div>
           <div class="val td-b">$${f(c.S)}</div>
         </div>
         <div class="wa-item">
@@ -1097,7 +1164,7 @@ function renderBuyWriteSection(S, T, r, sigma, DTE, contracts) {
         </div>
         <div class="wa-item">
           <div class="lbl">vs CSP Capital</div>
-          <div class="val td-r">+${f(((c.S/c.K)-1)*100,1)}% more</div>
+          <div class="val td-r">+${f(((c.S/c.K)-1)*100,1)}% more cash</div>
         </div>
       </div>
 
@@ -1141,11 +1208,11 @@ function renderBuyWriteSection(S, T, r, sigma, DTE, contracts) {
   const bwPnlId = 'bwPnlChart';
   document.getElementById('buywriteSection').innerHTML = `
     <div style="font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">
-      Buy+Write — Buy ${100*contracts} IWM Shares @ $${f(S)} + Sell Covered Call
+      Buy+Write — Buy ${100*contracts} ${currentTicker} Shares @ $${f(S)} + Sell Covered Call
     </div>
     <div class="bw-cards">${cardsHTML}</div>
     <div class="chart-card" style="margin-top:16px;">
-      <h3>Buy+Write P&L at Expiration vs Pure Stock Hold</h3>
+      <h3 id="bwChartTitle">Buy+Write P&amp;L at Expiration vs Pure Stock Hold</h3>
       <div style="position:relative;height:400px;"><canvas id="${bwPnlId}"></canvas></div>
       <div id="bwKeyLevels" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);"></div>
     </div>`;
@@ -1164,7 +1231,7 @@ function renderBWPnlChart(cards, S, contracts) {
   const labels = Array.from({length:steps+1}, (_,i) => (lo+(hi-lo)*(i/steps)).toFixed(2));
 
   const stockDataset = {
-    label: 'Stock Only (no CC)',
+    label: `${currentTicker} Only (no CC)`,
     data: labels.map(l => (parseFloat(l) - S) * 100 * contracts),
     borderColor: '#58a6ff',
     borderWidth: 1.5,
@@ -1202,14 +1269,14 @@ function renderBWPnlChart(cards, S, contracts) {
           titleColor: '#8b949e', bodyColor: '#e6edf3', padding: 12,
           titleFont: { size: 13, family:'monospace' }, bodyFont: { size: 13, family:'monospace' },
           callbacks: {
-            title: items => `IWM @ $${parseFloat(items[0].label).toFixed(2)}`,
+            title: items => `${currentTicker} @ $${parseFloat(items[0].label).toFixed(2)}`,
             label: item => `  ${item.dataset.label}: ${item.raw>=0?'+':''}$${item.raw.toFixed(2)}`,
           }
         }
       },
       scales: {
         x: { grid:{color:'#1c2330'}, ticks:{color:'#adbac7',font:{size:12},maxTicksLimit:10,maxRotation:0,callback:(_,i)=>`$${parseFloat(labels[i]).toFixed(0)}`},
-             title:{display:true,text:'IWM Price at Expiration',color:'#8b949e',font:{size:13},padding:{top:10}} },
+             title:{display:true,text:`${currentTicker} Price at Expiration`,color:'#8b949e',font:{size:13},padding:{top:10}} },
         y: { grid:{color:'#1c2330'}, ticks:{color:'#adbac7',font:{size:12},callback:v=>`${v>=0?'+':''}$${v.toLocaleString('en-US')}`},
              title:{display:true,text:'Profit / Loss ($)',color:'#8b949e',font:{size:13}} }
       }
@@ -1351,12 +1418,12 @@ function renderCompareSection(cspData, bwData, S, T, r, sigma, DTE, contracts) {
           tooltip:{backgroundColor:'#1c2330',borderColor:'#30363d',borderWidth:1,
             titleColor:'#8b949e',bodyColor:'#e6edf3',padding:12,
             titleFont:{size:13,family:'monospace'},bodyFont:{size:12,family:'monospace'},
-            callbacks:{title:items=>`IWM @ $${parseFloat(items[0].label).toFixed(2)}`,
+            callbacks:{title:items=>`${currentTicker} @ $${parseFloat(items[0].label).toFixed(2)}`,
               label:item=>`  ${item.dataset.label}: ${item.raw>=0?'+':''}$${item.raw.toFixed(2)}`}}
         },
         scales:{
           x:{grid:{color:'#1c2330'},ticks:{color:'#adbac7',font:{size:12},maxTicksLimit:10,maxRotation:0,callback:(_,i)=>`$${parseFloat(chartLabels[i]).toFixed(0)}`},
-             title:{display:true,text:'IWM Price at Expiration',color:'#8b949e',font:{size:13},padding:{top:10}}},
+             title:{display:true,text:`${currentTicker} Price at Expiration`,color:'#8b949e',font:{size:13},padding:{top:10}}},
           y:{grid:{color:'#1c2330'},ticks:{color:'#adbac7',font:{size:12},callback:v=>`${v>=0?'+':''}$${v.toLocaleString('en-US')}`},
              title:{display:true,text:'Profit / Loss ($)',color:'#8b949e',font:{size:13}}}
         }
@@ -1616,7 +1683,7 @@ function renderRiskDashboard(computed, S) {
           <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">⚠ Margin Call Trigger (est.)</div>
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <div style="font-size:20px;font-weight:700;color:#f85149">$${f(mcPrice)}</div>
-            <div style="font-size:11px;color:var(--muted)">IWM drops ${f(((S-mcPrice)/S)*100,1)}% from spot</div>
+            <div style="font-size:11px;color:var(--muted)">${currentTicker} drops ${f(((S-mcPrice)/S)*100,1)}% from spot</div>
           </div>
           <div style="font-size:10px;color:#8b949e;margin-top:4px;">25% maintenance margin assumed · Verify exact levels with your broker</div>
         </div>` : `
@@ -1727,7 +1794,7 @@ function renderRiskDashboard(computed, S) {
           <thead>
             <tr>
               <th>Scenario</th>
-              <th>IWM Price</th>
+              <th>${currentTicker} Price</th>
               <th colspan="2" style="color:#f85149">Aggressive</th>
               <th colspan="2" style="color:#d29922">Moderate</th>
               <th colspan="2" style="color:#3fb950">Balanced</th>
@@ -1774,7 +1841,7 @@ async function fetchPrice() {
     } catch (_) {}
   }
   setStatus('error', 'Price unavailable — enter via 🔑 or type below');
-  showAlert('Could not auto-fetch IWM price. Options: (1) click 🔑 API Key and add a free Alpha Vantage key from alphavantage.co, or (2) type the price in the manual override below.');
+  showAlert(`Could not auto-fetch ${currentTicker} price. Options: (1) click 🔑 API Key and add a free Alpha Vantage key from alphavantage.co, or (2) type the price in the manual override below.`);
   showManualOverride();
 }
 
@@ -1784,7 +1851,7 @@ function showManualOverride() {
   const row = document.createElement('div');
   row.id = 'manualPriceRow';
   row.className = 'cfg-field';
-  row.innerHTML = `<label>Manual IWM Price ($)</label><input type="number" id="manualPrice" placeholder="e.g. 215.00" step="0.01" onchange="applyManualPrice(this.value)" />`;
+  row.innerHTML = `<label>Manual ${currentTicker} Price ($)</label><input type="number" id="manualPrice" placeholder="e.g. 215.00" step="0.01" onchange="applyManualPrice(this.value)" />`;
   bar.insertBefore(row, bar.firstChild);
 }
 
@@ -1794,13 +1861,13 @@ function applyManualPrice(val) {
 }
 
 async function fetchViaAllOrigins() {
-  const url = 'https://query1.finance.yahoo.com/v8/finance/chart/IWM?interval=1d&range=1d';
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${currentTicker}?interval=1d&range=1d`;
   const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(9000) });
   if (!res.ok) throw new Error(res.status);
   return parseYahooChart(await res.json());
 }
 async function fetchViaCodeTabs() {
-  const url = 'https://query1.finance.yahoo.com/v7/finance/quote?symbols=IWM';
+  const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${currentTicker}`;
   const res = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(9000) });
   if (!res.ok) throw new Error(res.status);
   const j = await res.json();
@@ -1809,20 +1876,20 @@ async function fetchViaCodeTabs() {
   return { price: q.regularMarketPrice, change: q.regularMarketChange??0, changePct: q.regularMarketChangePercent??0, time: q.regularMarketTime ? new Date(q.regularMarketTime*1000) : new Date() };
 }
 async function fetchViaThingProxy() {
-  const url = 'https://query1.finance.yahoo.com/v8/finance/chart/IWM?interval=1d&range=1d';
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${currentTicker}?interval=1d&range=1d`;
   const res = await fetch(`https://thingproxy.freeboard.io/fetch/${url}`, { signal: AbortSignal.timeout(9000) });
   if (!res.ok) throw new Error(res.status);
   return parseYahooChart(await res.json());
 }
 async function fetchViaAlt() {
-  const url = 'https://query2.finance.yahoo.com/v8/finance/chart/IWM?interval=1d&range=1d';
+  const url = `https://query2.finance.yahoo.com/v8/finance/chart/${currentTicker}?interval=1d&range=1d`;
   const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(9000) });
   if (!res.ok) throw new Error(res.status);
   const wrapper = await res.json();
   return parseYahooChart(JSON.parse(wrapper.contents));
 }
 async function fetchAlphaVantage(apiKey) {
-  const res = await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=IWM&apikey=${apiKey}`, { signal: AbortSignal.timeout(10000) });
+  const res = await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${currentTicker}&apikey=${apiKey}`, { signal: AbortSignal.timeout(10000) });
   if (!res.ok) throw new Error(res.status);
   const j = await res.json();
   const q = j?.['Global Quote'];
@@ -1866,6 +1933,7 @@ function setApiKey() {
 );
 
 // Boot
+updateHeaderForTicker(currentTicker);
 fetchPrice();
 </script>
 </body>
