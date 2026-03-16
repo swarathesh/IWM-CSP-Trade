@@ -174,6 +174,63 @@
       font-size: 12px; color: var(--red); display: none;
     }
     footer { text-align: center; padding: 16px; color: var(--muted); font-size: 11px; border-top: 1px solid var(--border); }
+
+    /* ── Wheel ── */
+    .wheel-header {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 16px 20px; margin-bottom: 16px; overflow-x: auto;
+    }
+    .wheel-flow {
+      display: flex; align-items: center; gap: 10px; min-width: max-content;
+    }
+    .wf-step {
+      text-align: center; padding: 10px 14px; border-radius: 8px;
+      font-size: 12px; font-weight: 700; line-height: 1.4; white-space: nowrap;
+    }
+    .wf-step span { font-weight: 400; font-size: 10px; color: var(--muted); display: block; }
+    .wf-arrow { color: var(--muted); font-size: 18px; }
+    .wf-csp    { background: rgba(88,166,255,.12);  color: var(--blue);   border: 1px solid var(--blue); }
+    .wf-cc     { background: rgba(188,140,255,.12); color: var(--purple); border: 1px solid var(--purple); }
+    .wf-expire { background: rgba(63,185,80,.08);   color: var(--green);  border: 1px solid var(--green); }
+    .wf-assign { background: rgba(248,81,73,.10);   color: var(--red);    border: 1px solid var(--red); }
+    .wf-called { background: rgba(255,166,87,.10);  color: var(--orange); border: 1px solid var(--orange); }
+
+    .wheel-cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+    @media (max-width:900px) { .wheel-cards { grid-template-columns: 1fr; } }
+    .wheel-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+    }
+    .wheel-card-header {
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .wheel-card-header .wc-title { font-size: 14px; font-weight: 700; }
+    .wheel-card-header .wc-basis { font-size: 12px; color: var(--muted); }
+    .wheel-assignment {
+      padding: 12px 16px; background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      display: grid; grid-template-columns: repeat(3,1fr); gap: 8px;
+    }
+    .wa-item .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+    .wa-item .val { font-size: 15px; font-weight: 700; margin-top: 2px; }
+    .wheel-cc-table { padding: 14px 16px; }
+    .wheel-cc-table h4 { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 10px; }
+    .cc-option {
+      background: var(--surface2); border-radius: 8px; padding: 12px 14px;
+      margin-bottom: 10px; border-left: 3px solid;
+    }
+    .cc-option-title { font-size: 12px; font-weight: 700; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+    .cc-option-title .cc-badge { font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+    .cc-metrics { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+    .cc-m .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+    .cc-m .val { font-size: 13px; font-weight: 700; margin-top: 2px; }
+    .wheel-totals {
+      padding: 12px 16px; border-top: 1px solid var(--border);
+      background: rgba(63,185,80,.04);
+      display: grid; grid-template-columns: repeat(2,1fr); gap: 8px;
+    }
+    .wt-item .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+    .wt-item .val { font-size: 16px; font-weight: 700; margin-top: 2px; }
   </style>
 </head>
 <body>
@@ -327,6 +384,25 @@
     </div>
   </div>
 
+  <!-- ── The Wheel ── -->
+  <div class="wheel-header">
+    <div class="wheel-flow">
+      <div class="wf-step wf-csp">① Sell CSP</div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step wf-expire">Expires Worthless<br><span>Keep premium · Repeat</span></div>
+      <div class="wf-arrow" style="opacity:.3">↺</div>
+      <div class="wf-step wf-assign">Assigned<br><span>Own 100 shares @ strike</span></div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step wf-cc">② Sell CC</div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step wf-expire">Expires Worthless<br><span>Keep premium · Sell CC again</span></div>
+      <div class="wf-arrow" style="opacity:.3">↺</div>
+      <div class="wf-step wf-called">Called Away<br><span>Full cycle complete</span></div>
+    </div>
+  </div>
+
+  <div id="wheelSection" style="margin-bottom:20px;"></div>
+
   <!-- Scenarios -->
   <div class="scenarios-card">
     <h3>Scenario Analysis at Expiration</h3>
@@ -374,6 +450,17 @@ function normCDF(x) {
   return 0.5*(1+sign*y);
 }
 function normPDF(x){ return Math.exp(-0.5*x*x)/Math.sqrt(2*Math.PI); }
+
+function bsCall(S, K, T, r, sigma) {
+  if (T <= 0 || sigma <= 0) return { price: Math.max(S-K,0), delta: S>K?1:0.5 };
+  const d1 = (Math.log(S/K)+(r+0.5*sigma*sigma)*T)/(sigma*Math.sqrt(T));
+  const d2 = d1-sigma*Math.sqrt(T);
+  return {
+    price: S*normCDF(d1) - K*Math.exp(-r*T)*normCDF(d2),
+    delta: normCDF(d1),
+    theta: (-(S*normPDF(d1)*sigma)/(2*Math.sqrt(T)) - r*K*Math.exp(-r*T)*normCDF(d2))/365,
+  };
+}
 
 function bsPut(S, K, T, r, sigma) {
   if (T <= 0 || sigma <= 0) {
@@ -462,6 +549,7 @@ function calculate() {
   renderPnLChart(computed, S);
   renderThetaChart(computed, S, T, r, sigma, DTE);
   renderRocPopCharts(S, T, r, sigma, DTE, contracts);
+  renderWheelSection(computed, S, T, r, sigma, DTE);
   renderScenarios(computed, S);
 }
 
@@ -833,6 +921,140 @@ function renderScenarios(computed, S) {
       ${cols.map(c=>`<td class="${c.result.includes('✓')?'td-g':c.result.includes('~')?'td-y':'td-r'}">${c.result}</td>`).join('')}
     </tr>`;
   }).join('');
+}
+
+// ── Wheel Strategy ────────────────────────────────────────────────────────
+function renderWheelSection(computed, S, T, r, sigma, DTE) {
+  const f  = (v, d=2) => v.toFixed(d);
+  const fd = (v, d=2) => (v>=0?'+$':'-$') + Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+  const contracts = computed[0].contracts;
+
+  const cards = computed.map(c => {
+    const costBasis   = c.K - c.P;                              // per share
+    const unrealized  = (S - costBasis) * 100 * contracts;     // at current price
+    const sharesValue = S * 100 * contracts;
+
+    // Three covered call choices
+    const ccOpts = [
+      { label: 'At Cost Basis',      badge: 'Break-Even',      strike: Math.round(costBasis/0.5)*0.5, color: '#3fb950', bg: 'rgba(63,185,80,.08)' },
+      { label: 'At Original Strike', badge: 'Classic Wheel',   strike: c.K,                           color: c.color,   bg: c.color+'11' },
+      { label: 'ATM (Current Price)',badge: 'Max Premium',      strike: Math.round(S/0.5)*0.5,         color: '#bc8cff', bg: 'rgba(188,140,255,.08)' },
+    ];
+
+    const ccRows = ccOpts.map(opt => {
+      const call         = bsCall(S, opt.strike, T, r, sigma);
+      const ccP          = Math.max(0.01, call.price);
+      const totalPremium = (c.P + ccP) * 100 * contracts;
+      const wheelBE      = costBasis - ccP;                          // break-even after CC
+      const pnlCalled    = (opt.strike - costBasis + ccP) * 100 * contracts; // if called away
+      const capDeployed  = c.K * 100 * contracts;
+      const wheelROC     = (totalPremium / capDeployed) * 100;
+      const annWheelROC  = wheelROC * (365 / (DTE * 2));
+      const ccDelta      = call.delta;
+
+      return `
+        <div class="cc-option" style="border-color:${opt.color};background:${opt.bg}">
+          <div class="cc-option-title" style="color:${opt.color}">
+            <span>${opt.label} — Strike $${f(opt.strike)}</span>
+            <span class="cc-badge" style="background:${opt.color}22;color:${opt.color}">${opt.badge}</span>
+          </div>
+          <div class="cc-metrics">
+            <div class="cc-m">
+              <div class="lbl">CC Premium</div>
+              <div class="val" style="color:${opt.color}">$${f(ccP)}</div>
+            </div>
+            <div class="cc-m">
+              <div class="lbl">CC Delta</div>
+              <div class="val">+${f(ccDelta,3)}</div>
+            </div>
+            <div class="cc-m">
+              <div class="lbl">Wheel B/E</div>
+              <div class="val">$${f(wheelBE)}</div>
+            </div>
+            <div class="cc-m">
+              <div class="lbl">Total Premium</div>
+              <div class="val td-g">${fd(totalPremium)}</div>
+            </div>
+            <div class="cc-m">
+              <div class="lbl">P&L if Called</div>
+              <div class="val ${pnlCalled>=0?'td-g':'td-r'}">${fd(pnlCalled)}</div>
+            </div>
+            <div class="cc-m">
+              <div class="lbl">Full Cycle ROC</div>
+              <div class="val" style="color:${opt.color}">${f(wheelROC,2)}% <span style="font-size:10px;color:var(--muted)">(${f(annWheelROC,1)}% ann.)</span></div>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+
+    // Best CC (highest net P&L if called)
+    const cspIncome  = c.maxProfit;
+    const unrealColor = unrealized >= 0 ? '#3fb950' : '#f85149';
+
+    return `
+      <div class="wheel-card">
+        <div class="wheel-card-header" style="border-left:4px solid ${c.color}">
+          <div>
+            <div class="wc-title" style="color:${c.color}">${c.label} — Wheel</div>
+            <div class="wc-basis">Assigned at $${f(c.K)} · CSP Strike</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:10px;color:var(--muted);">COST BASIS</div>
+            <div style="font-size:22px;font-weight:700;color:var(--blue)">$${f(costBasis)}</div>
+            <div style="font-size:10px;color:var(--muted);">per share</div>
+          </div>
+        </div>
+
+        <div class="wheel-assignment">
+          <div class="wa-item">
+            <div class="lbl">Assigned At</div>
+            <div class="val td-b">$${f(c.K)}</div>
+          </div>
+          <div class="wa-item">
+            <div class="lbl">Shares Value Now</div>
+            <div class="val">$${Math.round(sharesValue).toLocaleString()}</div>
+          </div>
+          <div class="wa-item">
+            <div class="lbl">Unrealized P&L</div>
+            <div class="val" style="color:${unrealColor}">${fd(unrealized)}</div>
+          </div>
+          <div class="wa-item">
+            <div class="lbl">CSP Premium Kept</div>
+            <div class="val td-g">${fd(cspIncome)}</div>
+          </div>
+          <div class="wa-item">
+            <div class="lbl">Net Cost Basis</div>
+            <div class="val td-y">$${f(costBasis)} / sh</div>
+          </div>
+          <div class="wa-item">
+            <div class="lbl">Shares</div>
+            <div class="val">${100 * contracts}</div>
+          </div>
+        </div>
+
+        <div class="wheel-cc-table">
+          <h4>② Choose Your Covered Call</h4>
+          ${ccRows}
+        </div>
+
+        <div class="wheel-totals">
+          <div class="wt-item">
+            <div class="lbl">Capital in Position</div>
+            <div class="val td-muted">$${(c.K * 100 * contracts).toLocaleString()}</div>
+          </div>
+          <div class="wt-item">
+            <div class="lbl">CSP Income This Cycle</div>
+            <div class="val td-g">${fd(cspIncome)}</div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('wheelSection').innerHTML = `
+    <div style="font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">
+      The Wheel — Step ② If Assigned
+    </div>
+    <div class="wheel-cards">${cards}</div>`;
 }
 
 // ── Price Fetch ───────────────────────────────────────────────────────────
