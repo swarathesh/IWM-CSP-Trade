@@ -457,53 +457,109 @@ const CHART_DEFAULTS = {
 async function fetchPrice() {
   setStatus('loading', 'Fetching...');
   const sources = [
-    fetchYahooViaCorsProxy,
-    fetchFromFinnhubFree,
+    { fn: fetchYahooDirect,     label: 'Yahoo Finance' },
+    { fn: fetchYahooProxy1,     label: 'Yahoo Finance' },
+    { fn: fetchYahooProxy2,     label: 'Yahoo Finance' },
+    { fn: fetchYahooProxy3,     label: 'Yahoo Finance' },
+    { fn: fetchAlphaVantage,    label: 'Alpha Vantage' },
+    { fn: fetchFMP,             label: 'FMP' },
   ];
-  for (const fn of sources) {
+  for (const src of sources) {
     try {
-      const data = await fn();
+      const data = await src.fn();
       if (data && data.price > 0) {
         currentPrice = data.price;
         renderPrice(data);
-        setStatus('live', 'Live · Yahoo Finance');
-        document.getElementById('inpUnderlying').value = data.price.toFixed(2);
+        setStatus('live', `Live · ${src.label}`);
+        const inp = document.getElementById('inpUnderlying');
+        inp.value = data.price.toFixed(2);
+        inp.setAttribute('readonly', true);
         buildStrikePresets(data.price);
         return;
       }
-    } catch (e) { /* try next */ }
+    } catch (e) { /* try next source */ }
   }
   setStatus('error', 'Price unavailable — enter manually');
   document.getElementById('inpUnderlying').removeAttribute('readonly');
-  document.getElementById('inpUnderlying').placeholder = 'Enter manually';
+  document.getElementById('inpUnderlying').placeholder = 'Enter price manually';
 }
 
-async function fetchYahooViaCorsProxy() {
+// Try 1: Yahoo Finance directly (works in some environments)
+async function fetchYahooDirect() {
   const url = 'https://query1.finance.yahoo.com/v8/finance/chart/IWM?interval=1d&range=1d';
-  const proxies = [
-    `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-  ];
-  for (const proxy of proxies) {
-    try {
-      const res = await fetch(proxy, { signal: AbortSignal.timeout(6000) });
-      if (!res.ok) continue;
-      const json = await res.json();
-      const meta = json?.chart?.result?.[0]?.meta;
-      if (!meta) continue;
-      const price = meta.regularMarketPrice;
-      const prev = meta.chartPreviousClose || meta.previousClose;
-      const change = price - prev;
-      const changePct = (change / prev) * 100;
-      return { price, change, changePct, time: new Date(meta.regularMarketTime * 1000) };
-    } catch (e) { continue; }
-  }
-  throw new Error('Yahoo proxy failed');
+  const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+  return parseYahooChart(await res.json());
 }
 
-async function fetchFromFinnhubFree() {
-  // Finnhub free requires API key, skip silently
-  throw new Error('No key');
+// Try 2: corsproxy.io
+async function fetchYahooProxy1() {
+  const url = 'https://query1.finance.yahoo.com/v8/finance/chart/IWM?interval=1d&range=1d';
+  const res = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(6000) });
+  if (!res.ok) throw new Error(res.status);
+  return parseYahooChart(await res.json());
+}
+
+// Try 3: allorigins
+async function fetchYahooProxy2() {
+  const url = 'https://query1.finance.yahoo.com/v8/finance/chart/IWM?interval=1d&range=1d';
+  const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(6000) });
+  if (!res.ok) throw new Error(res.status);
+  return parseYahooChart(await res.json());
+}
+
+// Try 4: codetabs proxy
+async function fetchYahooProxy3() {
+  const url = 'https://query2.finance.yahoo.com/v7/finance/quote?symbols=IWM&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent,regularMarketTime';
+  const res = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(6000) });
+  if (!res.ok) throw new Error(res.status);
+  const json = await res.json();
+  const q = json?.quoteResponse?.result?.[0];
+  if (!q) throw new Error('no data');
+  return {
+    price: q.regularMarketPrice,
+    change: q.regularMarketChange,
+    changePct: q.regularMarketChangePercent,
+    time: q.regularMarketTime ? new Date(q.regularMarketTime * 1000) : new Date(),
+  };
+}
+
+// Try 5: Alpha Vantage (free demo key)
+async function fetchAlphaVantage() {
+  const res = await fetch(
+    'https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=IWM&apikey=demo',
+    { signal: AbortSignal.timeout(8000) }
+  );
+  if (!res.ok) throw new Error(res.status);
+  const json = await res.json();
+  const q = json?.['Global Quote'];
+  if (!q || !q['05. price']) throw new Error('no data');
+  const price = parseFloat(q['05. price']);
+  const change = parseFloat(q['09. change']);
+  const changePct = parseFloat(q['10. change percent']);
+  return { price, change, changePct, time: new Date() };
+}
+
+// Try 6: Financial Modeling Prep demo
+async function fetchFMP() {
+  const res = await fetch(
+    'https://financialmodelingprep.com/api/v3/quote-short/IWM?apikey=demo',
+    { signal: AbortSignal.timeout(8000) }
+  );
+  if (!res.ok) throw new Error(res.status);
+  const json = await res.json();
+  const q = Array.isArray(json) ? json[0] : null;
+  if (!q || !q.price) throw new Error('no data');
+  return { price: q.price, change: null, changePct: null, time: new Date() };
+}
+
+function parseYahooChart(json) {
+  const meta = json?.chart?.result?.[0]?.meta;
+  if (!meta || !meta.regularMarketPrice) throw new Error('no meta');
+  const price = meta.regularMarketPrice;
+  const prev = meta.chartPreviousClose || meta.previousClose || price;
+  const change = price - prev;
+  const changePct = (change / prev) * 100;
+  return { price, change, changePct, time: meta.regularMarketTime ? new Date(meta.regularMarketTime * 1000) : new Date() };
 }
 
 function renderPrice(data) {
