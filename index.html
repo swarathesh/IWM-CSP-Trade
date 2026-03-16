@@ -64,7 +64,9 @@
       width: 110px; outline: none;
     }
     .cfg-field input:focus { border-color: var(--blue); }
-    .cfg-note { font-size: 11px; color: var(--muted); align-self: center; padding-top: 16px; }
+    .cfg-divider { width: 1px; background: var(--border); align-self: stretch; margin: 0 4px; }
+    .cfg-tag { background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-size: 9px; color: var(--blue); text-transform: uppercase; letter-spacing: .4px; margin-left: 4px; }
+    .cfg-note { font-size: 11px; color: var(--muted); align-self: center; padding-top: 16px; max-width: 220px; line-height: 1.4; }
     .recalc-btn {
       background: var(--blue); color: #0d1117; border: none; border-radius: 6px;
       padding: 8px 20px; font-family: inherit; font-size: 13px; font-weight: 700;
@@ -116,6 +118,10 @@
     .strat-card.balanced   .delta-badge { color: var(--green); border-color: var(--green); background: rgba(63,185,80,.08); }
 
     .strat-metrics { padding: 14px 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .sm-section-header {
+      grid-column: 1/-1; font-size: 10px; color: var(--muted); text-transform: uppercase;
+      letter-spacing: .8px; padding: 8px 4px 2px; border-top: 1px solid var(--border); margin-top: 4px;
+    }
     .sm-row { grid-column: 1/-1; display: flex; justify-content: space-between; align-items: center;
               background: var(--surface2); border-radius: 6px; padding: 8px 12px; }
     .sm-row .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
@@ -212,8 +218,19 @@
     <label>Risk-Free Rate %</label>
     <input type="number" id="cfgRFR" value="5.3" step="0.1" />
   </div>
+  <div class="cfg-divider"></div>
+  <div class="cfg-field">
+    <label>Your Capital % <span class="cfg-tag">Margin</span></label>
+    <input type="number" id="cfgMarginPct" value="100" min="1" max="100" step="1"
+           title="How much of the notional you put up. 100% = fully cash-secured. 20% = margin account." />
+  </div>
+  <div class="cfg-field">
+    <label>Margin Interest % <span class="cfg-tag">Annual</span></label>
+    <input type="number" id="cfgMarginRate" value="6.5" step="0.1" min="0"
+           title="Annual interest rate charged by broker on borrowed capital." />
+  </div>
   <button class="recalc-btn" onclick="calculate()">Recalculate</button>
-  <div class="cfg-note">Strikes &amp; premiums calculated automatically via Black-Scholes at target delta.</div>
+  <div class="cfg-note">Strikes &amp; premiums auto-calculated via Black-Scholes at target delta.</div>
 </div>
 
 <main>
@@ -271,7 +288,9 @@
   <!-- P&L chart full width -->
   <div class="chart-card" style="margin-bottom:16px;">
     <h3>P&amp;L at Expiration — All Strategies</h3>
-    <div style="position:relative;height:420px;"><canvas id="pnlChart"></canvas></div>
+    <div style="position:relative;height:520px;"><canvas id="pnlChart"></canvas></div>
+    <!-- key levels rendered outside the canvas, no overlap -->
+    <div id="pnlKeyLevels" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);"></div>
   </div>
 
   <!-- Theta decay full width -->
@@ -392,30 +411,50 @@ function calculate() {
   if (!S) { showAlert('Price not loaded yet — hit ↻ Refresh or enter manually.'); return; }
   hideAlert();
 
-  const DTE       = Math.max(1, parseInt(document.getElementById('cfgDTE').value) || 30);
-  const ivPct     = parseFloat(document.getElementById('cfgIV').value) || 22;
-  const contracts = parseInt(document.getElementById('cfgContracts').value) || 1;
-  const rfrPct    = parseFloat(document.getElementById('cfgRFR').value) || 5.3;
-  const T         = DTE / 365;
-  const sigma     = ivPct / 100;
-  const r         = rfrPct / 100;
+  const DTE        = Math.max(1, parseInt(document.getElementById('cfgDTE').value) || 30);
+  const ivPct      = parseFloat(document.getElementById('cfgIV').value) || 22;
+  const contracts  = parseInt(document.getElementById('cfgContracts').value) || 1;
+  const rfrPct     = parseFloat(document.getElementById('cfgRFR').value) || 5.3;
+  const marginPct  = Math.min(100, Math.max(1, parseFloat(document.getElementById('cfgMarginPct').value) || 100));
+  const marginRate = parseFloat(document.getElementById('cfgMarginRate').value) || 6.5;
+  const T          = DTE / 365;
+  const sigma      = ivPct / 100;
+  const r          = rfrPct / 100;
+  const usingMargin = marginPct < 100;
 
   const computed = STRATEGIES.map(strat => {
     const K      = strikeFromDelta(S, strat.targetDelta, T, r, sigma);
     const bs     = bsPut(S, K, T, r, sigma);
-    const P      = Math.max(0.01, bs.price);   // theoretical premium
+    const P      = Math.max(0.01, bs.price);
     const be     = K - P;
-    const maxProfit  = P * 100 * contracts;
-    const maxLoss    = be * 100 * contracts;   // stock → $0
-    const capReq     = K * 100 * contracts;
-    const roc        = (P / K) * 100;
-    const annROC     = roc * (365 / DTE);
-    const distPct    = ((S - K) / S) * 100;
-    const yieldPct   = (P / S) * 100;
-    // prob of profit: log-normal P(S_T > be)
+
+    // Cash-secured metrics
+    const maxProfit = P * 100 * contracts;
+    const maxLoss   = be * 100 * contracts;       // stock → $0
+    const capReq    = K * 100 * contracts;        // full notional
+    const roc       = (P / K) * 100;
+    const annROC    = roc * (365 / DTE);
+    const distPct   = ((S - K) / S) * 100;
+    const yieldPct  = (P / S) * 100;
     const pop = normCDF((Math.log(S / be) - (r - 0.5*sigma*sigma)*T) / (sigma*Math.sqrt(T))) * 100;
+
+    // Margin metrics
+    const yourCapital    = capReq * (marginPct / 100);          // cash you put up
+    const borrowed       = capReq - yourCapital;                // broker lends this
+    const interestCost   = borrowed * (marginRate / 100) * T;  // interest for this cycle
+    const netPremium     = maxProfit - interestCost;            // after paying interest
+    const marginROC      = (netPremium / yourCapital) * 100;
+    const annMarginROC   = marginROC * (365 / DTE);
+    const leverage       = 1 / (marginPct / 100);
+    // Max loss on your capital: stock→$0, you lose full notional but only put up yourCapital
+    // Effective max loss = capReq - maxProfit (net cost of assignment at $0)
+    // On your capital that equals the full position loss minus what you borrowed
+    const marginMaxLoss  = maxLoss - borrowed;  // your out-of-pocket at total wipeout
+
     return { ...strat, K, P, T, r, sigma, DTE, S, contracts,
              be, maxProfit, maxLoss, capReq, roc, annROC, distPct, yieldPct, pop,
+             yourCapital, borrowed, interestCost, netPremium, marginROC, annMarginROC,
+             leverage, marginPct, marginRate, marginMaxLoss, usingMargin,
              delta: bs.delta, gamma: bs.gamma, theta: bs.theta, vega: bs.vega };
   });
 
@@ -434,6 +473,32 @@ function renderStratCard(c) {
   const f = (v, dec=2) => v.toFixed(dec);
   const fd = v => (v>=0?'+$':'-$') + Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 
+  const marginSection = c.usingMargin ? `
+    <div class="sm-section-header">MARGIN ACCOUNT · ${c.marginPct}% Your Capital · ${(100-c.marginPct)}% Borrowed</div>
+    <div class="sm-row" style="border:1px solid ${c.color}33;">
+      <div><div class="lbl">Your Capital</div><div class="val td-b">$${Math.round(c.yourCapital).toLocaleString()}</div></div>
+      <div><div class="lbl">Borrowed</div><div class="val td-muted">$${Math.round(c.borrowed).toLocaleString()}</div></div>
+    </div>
+    <div class="sm-row" style="border:1px solid ${c.color}33;">
+      <div><div class="lbl">Interest Cost</div><div class="val td-r">-$${f(c.interestCost,2)}</div></div>
+      <div><div class="lbl">Net Premium</div><div class="val td-g">${fd(c.netPremium)}</div></div>
+    </div>
+    <div class="sm-cell" style="border:1px solid ${c.color}44;">
+      <div class="lbl">Leveraged ROC (on your capital)</div>
+      <div class="val val-profit">${f(c.marginROC,2)}%</div>
+      <div class="sub">${f(c.leverage,1)}× leverage · after ${f(c.marginRate,1)}% margin interest</div>
+    </div>
+    <div class="sm-cell" style="border:1px solid ${c.color}44;">
+      <div class="lbl">Annualized Leveraged ROC</div>
+      <div class="val val-profit">${f(c.annMarginROC,1)}%</div>
+      <div class="sub">Net of interest cost</div>
+    </div>
+    <div class="sm-row" style="background:rgba(248,81,73,0.06);border:1px solid #f8514933;">
+      <div><div class="lbl">Max Loss on Your Capital</div><div class="val td-r">-$${Math.round(c.marginMaxLoss).toLocaleString()}</div></div>
+      <div><div class="lbl">Leverage Multiple</div><div class="val td-y">${f(c.leverage,2)}×</div></div>
+    </div>
+  ` : '';
+
   m.innerHTML = `
     <div class="sm-row">
       <div><div class="lbl">Strike Price</div><div class="val td-b">$${f(c.K,2)}</div></div>
@@ -444,14 +509,14 @@ function renderStratCard(c) {
       <div><div class="lbl">Break-Even</div><div class="val td-y">$${f(c.be,2)}</div></div>
     </div>
     <div class="sm-cell">
-      <div class="lbl">Return on Capital</div>
+      <div class="lbl">ROC (Cash-Secured)</div>
       <div class="val val-profit">${f(c.roc,2)}%</div>
-      <div class="sub">Per cycle (${c.DTE}d)</div>
+      <div class="sub">On full notional · ${c.DTE}d cycle</div>
     </div>
     <div class="sm-cell">
       <div class="lbl">Annualized ROC</div>
       <div class="val val-profit">${f(c.annROC,1)}%</div>
-      <div class="sub">Projected</div>
+      <div class="sub">Cash-secured basis</div>
     </div>
     <div class="sm-cell">
       <div class="lbl">Prob of Profit</div>
@@ -464,9 +529,10 @@ function renderStratCard(c) {
       <div class="sub">From spot $${f(c.S,2)}</div>
     </div>
     <div class="sm-row">
-      <div><div class="lbl">Capital Required</div><div class="val td-muted">$${c.capReq.toLocaleString()}</div></div>
+      <div><div class="lbl">Full Notional</div><div class="val td-muted">$${c.capReq.toLocaleString()}</div></div>
       <div><div class="lbl">Premium Yield</div><div class="val">${f(c.yieldPct,2)}%</div></div>
     </div>
+    ${marginSection}
   `;
 }
 
@@ -513,24 +579,36 @@ function renderPnLChart(computed, S) {
     type: 'line',
     data: { labels, datasets },
     options: {
-      responsive: true, maintainAspectRatio: false, animation: { duration: 400 },
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 400 },
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: {
           position: 'top',
-          labels: { color: '#e6edf3', font: { size: 13, family: 'monospace' }, padding: 20, boxWidth: 24, boxHeight: 3 }
+          labels: {
+            color: '#e6edf3',
+            font: { size: 14, family: 'monospace' },
+            padding: 28,
+            boxWidth: 32,
+            boxHeight: 4,
+          }
         },
         tooltip: {
-          backgroundColor: '#1c2330', borderColor: '#30363d', borderWidth: 1,
-          titleColor: '#8b949e', titleFont: { size: 13 },
-          bodyColor: '#e6edf3', bodyFont: { size: 13 },
-          padding: 12,
+          backgroundColor: '#1c2330',
+          borderColor: '#30363d',
+          borderWidth: 1,
+          titleColor: '#8b949e',
+          titleFont: { size: 14, family: 'monospace' },
+          bodyColor: '#e6edf3',
+          bodyFont: { size: 14, family: 'monospace' },
+          padding: 14,
           callbacks: {
             title: items => `IWM @ $${parseFloat(items[0].label).toFixed(2)}`,
             label: item => {
               const v = item.raw;
               const name = item.dataset.label.split('(')[0].trim();
-              return ` ${name}: ${v >= 0 ? '+' : ''}$${v.toLocaleString('en-US', {minimumFractionDigits:2,maximumFractionDigits:2})}`;
+              return `  ${name}:  ${v >= 0 ? '+' : ''}$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
             }
           }
         }
@@ -539,18 +617,22 @@ function renderPnLChart(computed, S) {
         x: {
           grid: { color: '#1c2330' },
           ticks: {
-            color: '#8b949e', font: { size: 12 }, maxTicksLimit: 12,
+            color: '#adbac7',
+            font: { size: 13, family: 'monospace' },
+            maxTicksLimit: 10,
+            maxRotation: 0,
             callback: (_, i) => `$${parseFloat(labels[i]).toFixed(0)}`
           },
-          title: { display: true, text: 'IWM Price at Expiration', color: '#8b949e', font: { size: 12 } }
+          title: { display: true, text: 'IWM Price at Expiration', color: '#8b949e', font: { size: 13 }, padding: { top: 10 } }
         },
         y: {
           grid: { color: '#1c2330' },
           ticks: {
-            color: '#8b949e', font: { size: 12 },
-            callback: v => `${v >= 0 ? '+' : ''}$${v.toLocaleString('en-US', {minimumFractionDigits:0})}`
+            color: '#adbac7',
+            font: { size: 13, family: 'monospace' },
+            callback: v => `${v >= 0 ? '+' : ''}$${v.toLocaleString('en-US')}`
           },
-          title: { display: true, text: 'Profit / Loss ($)', color: '#8b949e', font: { size: 12 } }
+          title: { display: true, text: 'Profit / Loss ($)', color: '#8b949e', font: { size: 13 }, padding: { bottom: 10 } }
         }
       }
     },
@@ -558,38 +640,56 @@ function renderPnLChart(computed, S) {
       id: 'vlines',
       afterDraw(chart) {
         const { ctx, scales: { x, y }, chartArea } = chart;
-        // zero line
+
+        // Zero line — solid, subtle
         const y0 = y.getPixelForValue(0);
         ctx.save();
-        ctx.strokeStyle = '#444c56'; ctx.lineWidth = 1.5; ctx.setLineDash([]);
+        ctx.strokeStyle = '#555e6a';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([]);
         ctx.beginPath(); ctx.moveTo(chartArea.left, y0); ctx.lineTo(chartArea.right, y0); ctx.stroke();
         ctx.restore();
 
-        const drawV = (price, color, lbl, offset) => {
+        // Draw a vertical line only — NO text on canvas
+        const drawV = (price, color, dash) => {
           const idx = labels.findIndex(l => parseFloat(l) >= price);
           if (idx < 0) return;
           const xp = x.getPixelForValue(idx);
           ctx.save();
-          ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash(dash);
           ctx.beginPath(); ctx.moveTo(xp, chartArea.top); ctx.lineTo(xp, chartArea.bottom); ctx.stroke();
-          // label background
-          ctx.setLineDash([]);
-          ctx.font = 'bold 11px monospace';
-          const tw = ctx.measureText(lbl).width + 8;
-          const ty = chartArea.top + 18 + (offset || 0);
-          ctx.fillStyle = color + '22';
-          ctx.fillRect(xp + 3, ty - 13, tw, 16);
-          ctx.fillStyle = color;
-          ctx.fillText(lbl, xp + 7, ty);
           ctx.restore();
         };
 
-        computed.forEach((c, i) => drawV(c.K,  c.color, `${c.label[0]}-Strike $${c.K}`,  i * 18));
-        computed.forEach((c, i) => drawV(c.be, c.color, `${c.label[0]}-B/E $${c.be.toFixed(2)}`, i * 18 + 60));
-        drawV(S, '#58a6ff', `Spot $${S.toFixed(2)}`, 0);
+        // Spot price — solid blue
+        drawV(S, '#58a6ff', []);
+        // Strikes — solid in strategy color
+        computed.forEach(c => drawV(c.K,  c.color, [6, 3]));
+        // Break-evens — lighter dashes
+        computed.forEach(c => drawV(c.be, c.color, [2, 4]));
       }
     }]
   });
+
+  // Key levels strip — rendered in DOM, never overlaps
+  const strip = document.getElementById('pnlKeyLevels');
+  if (strip) {
+    const chip = (label, value, color, bg) =>
+      `<div style="display:flex;align-items:center;gap:8px;background:${bg};border:1px solid ${color}44;border-radius:6px;padding:6px 14px;">
+        <span style="width:20px;height:3px;background:${color};display:inline-block;border-radius:2px;flex-shrink:0;"></span>
+        <span style="font-size:12px;color:#8b949e;">${label}</span>
+        <span style="font-size:15px;font-weight:700;color:${color};">${value}</span>
+      </div>`;
+
+    strip.innerHTML =
+      chip('Spot', `$${S.toFixed(2)}`, '#58a6ff', '#58a6ff11') +
+      computed.map(c =>
+        chip(`${c.label} Strike`, `$${c.K.toFixed(2)}`, c.color, c.color + '11') +
+        chip(`${c.label} B/E`,    `$${c.be.toFixed(2)}`, c.color, c.color + '08')
+      ).join('');
+  }
 }
 
 // ── Theta Decay Chart ─────────────────────────────────────────────────────
@@ -846,8 +946,8 @@ function setApiKey() {
   else { localStorage.setItem('av_api_key', key.trim()); fetchPrice(); }
 }
 
-// Auto-recalculate when config changes
-['cfgDTE','cfgIV','cfgContracts','cfgRFR'].forEach(id =>
+// Auto-recalculate when any config changes
+['cfgDTE','cfgIV','cfgContracts','cfgRFR','cfgMarginPct','cfgMarginRate'].forEach(id =>
   document.getElementById(id).addEventListener('change', () => { if (currentPrice) calculate(); })
 );
 
