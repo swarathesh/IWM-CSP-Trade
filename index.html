@@ -134,8 +134,8 @@
     @media (max-width: 900px) { .charts-row { grid-template-columns: 1fr; } }
     .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
     .chart-card h3 { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 14px; }
-    .chart-wrap { position: relative; height: 280px; }
-    .chart-wrap-sm { position: relative; height: 220px; }
+    .chart-wrap { position: relative; height: 300px; }
+    .chart-wrap-sm { position: relative; height: 240px; }
 
     /* ── Greeks row ── */
     .greeks-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 20px; }
@@ -268,16 +268,16 @@
     </div>
   </div>
 
-  <!-- Charts -->
-  <div class="charts-row">
-    <div class="chart-card">
-      <h3>P&amp;L at Expiration — All Strategies</h3>
-      <div class="chart-wrap"><canvas id="pnlChart"></canvas></div>
-    </div>
-    <div class="chart-card">
-      <h3>Theta Decay — Premium Over Time</h3>
-      <div class="chart-wrap"><canvas id="thetaChart"></canvas></div>
-    </div>
+  <!-- P&L chart full width -->
+  <div class="chart-card" style="margin-bottom:16px;">
+    <h3>P&amp;L at Expiration — All Strategies</h3>
+    <div style="position:relative;height:420px;"><canvas id="pnlChart"></canvas></div>
+  </div>
+
+  <!-- Theta decay full width -->
+  <div class="chart-card" style="margin-bottom:16px;">
+    <h3>Theta Decay — Premium Over Time</h3>
+    <div style="position:relative;height:300px;"><canvas id="thetaChart"></canvas></div>
   </div>
 
   <!-- Greeks per strategy -->
@@ -513,44 +513,80 @@ function renderPnLChart(computed, S) {
     type: 'line',
     data: { labels, datasets },
     options: {
-      responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
+      responsive: true, maintainAspectRatio: false, animation: { duration: 400 },
+      interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { labels: { color: '#8b949e', font: { size: 11 } } },
+        legend: {
+          position: 'top',
+          labels: { color: '#e6edf3', font: { size: 13, family: 'monospace' }, padding: 20, boxWidth: 24, boxHeight: 3 }
+        },
         tooltip: {
-          backgroundColor: '#161b22', borderColor: '#30363d', borderWidth: 1,
-          titleColor: '#8b949e', bodyColor: '#e6edf3',
+          backgroundColor: '#1c2330', borderColor: '#30363d', borderWidth: 1,
+          titleColor: '#8b949e', titleFont: { size: 13 },
+          bodyColor: '#e6edf3', bodyFont: { size: 13 },
+          padding: 12,
           callbacks: {
             title: items => `IWM @ $${parseFloat(items[0].label).toFixed(2)}`,
-            label: item => `${item.dataset.label.split('(')[0].trim()}: ${item.raw>=0?'+':''}$${item.raw.toFixed(2)}`,
+            label: item => {
+              const v = item.raw;
+              const name = item.dataset.label.split('(')[0].trim();
+              return ` ${name}: ${v >= 0 ? '+' : ''}$${v.toLocaleString('en-US', {minimumFractionDigits:2,maximumFractionDigits:2})}`;
+            }
           }
         }
       },
       scales: {
-        x: { grid:{color:'#1c2330'}, ticks:{color:'#8b949e',maxTicksLimit:8,callback:(_,i)=>`$${parseFloat(labels[i]).toFixed(0)}`} },
-        y: { grid:{color:'#1c2330'}, ticks:{color:'#8b949e',callback:v=>`${v>=0?'+':''}$${v.toFixed(0)}`} }
+        x: {
+          grid: { color: '#1c2330' },
+          ticks: {
+            color: '#8b949e', font: { size: 12 }, maxTicksLimit: 12,
+            callback: (_, i) => `$${parseFloat(labels[i]).toFixed(0)}`
+          },
+          title: { display: true, text: 'IWM Price at Expiration', color: '#8b949e', font: { size: 12 } }
+        },
+        y: {
+          grid: { color: '#1c2330' },
+          ticks: {
+            color: '#8b949e', font: { size: 12 },
+            callback: v => `${v >= 0 ? '+' : ''}$${v.toLocaleString('en-US', {minimumFractionDigits:0})}`
+          },
+          title: { display: true, text: 'Profit / Loss ($)', color: '#8b949e', font: { size: 12 } }
+        }
       }
     },
     plugins: [{
       id: 'vlines',
       afterDraw(chart) {
-        const { ctx, scales:{x,y}, chartArea } = chart;
-        const drawV = (price, color, lbl) => {
+        const { ctx, scales: { x, y }, chartArea } = chart;
+        // zero line
+        const y0 = y.getPixelForValue(0);
+        ctx.save();
+        ctx.strokeStyle = '#444c56'; ctx.lineWidth = 1.5; ctx.setLineDash([]);
+        ctx.beginPath(); ctx.moveTo(chartArea.left, y0); ctx.lineTo(chartArea.right, y0); ctx.stroke();
+        ctx.restore();
+
+        const drawV = (price, color, lbl, offset) => {
           const idx = labels.findIndex(l => parseFloat(l) >= price);
           if (idx < 0) return;
           const xp = x.getPixelForValue(idx);
           ctx.save();
-          ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.setLineDash([4,4]);
-          ctx.beginPath(); ctx.moveTo(xp,chartArea.top); ctx.lineTo(xp,chartArea.bottom); ctx.stroke();
-          ctx.fillStyle = color; ctx.font = '10px monospace';
-          ctx.fillText(lbl, xp+3, chartArea.top+13);
+          ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+          ctx.beginPath(); ctx.moveTo(xp, chartArea.top); ctx.lineTo(xp, chartArea.bottom); ctx.stroke();
+          // label background
+          ctx.setLineDash([]);
+          ctx.font = 'bold 11px monospace';
+          const tw = ctx.measureText(lbl).width + 8;
+          const ty = chartArea.top + 18 + (offset || 0);
+          ctx.fillStyle = color + '22';
+          ctx.fillRect(xp + 3, ty - 13, tw, 16);
+          ctx.fillStyle = color;
+          ctx.fillText(lbl, xp + 7, ty);
           ctx.restore();
         };
-        computed.forEach(c => drawV(c.K, c.color, `K${c.label[0]}$${c.K}`));
-        drawV(S, '#58a6ff', `Spot $${S.toFixed(2)}`);
-        // zero line
-        const y0 = y.getPixelForValue(0);
-        ctx.save(); ctx.strokeStyle='#30363d'; ctx.lineWidth=1; ctx.setLineDash([]);
-        ctx.beginPath(); ctx.moveTo(chartArea.left,y0); ctx.lineTo(chartArea.right,y0); ctx.stroke(); ctx.restore();
+
+        computed.forEach((c, i) => drawV(c.K,  c.color, `${c.label[0]}-Strike $${c.K}`,  i * 18));
+        computed.forEach((c, i) => drawV(c.be, c.color, `${c.label[0]}-B/E $${c.be.toFixed(2)}`, i * 18 + 60));
+        drawV(S, '#58a6ff', `Spot $${S.toFixed(2)}`, 0);
       }
     }]
   });
