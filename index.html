@@ -175,6 +175,20 @@
     }
     footer { text-align: center; padding: 16px; color: var(--muted); font-size: 11px; border-top: 1px solid var(--border); }
 
+    /* ── Tabs ── */
+    .strat-tabs {
+      display: flex; gap: 4px; margin-bottom: 14px; border-bottom: 1px solid var(--border); padding-bottom: 0;
+    }
+    .strat-tab {
+      background: none; border: 1px solid var(--border); border-bottom: none;
+      color: var(--muted); font-family: inherit; font-size: 13px; font-weight: 600;
+      padding: 10px 20px; border-radius: 8px 8px 0 0; cursor: pointer;
+      transition: all .15s; margin-bottom: -1px;
+    }
+    .strat-tab:hover { color: var(--text); background: var(--surface2); }
+    .strat-tab.active { background: var(--surface); color: var(--blue); border-color: var(--border); border-bottom-color: var(--surface); }
+    .tab-content { margin-bottom: 20px; }
+
     /* ── Wheel ── */
     .wheel-header {
       background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
@@ -231,6 +245,30 @@
     }
     .wt-item .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
     .wt-item .val { font-size: 16px; font-weight: 700; margin-top: 2px; }
+
+    /* ── Buy+Write ── */
+    .bw-cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+    @media (max-width:900px) { .bw-cards { grid-template-columns: 1fr; } }
+    .bw-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .bw-header { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .bw-cost-row { padding: 12px 16px; background: var(--surface2); border-bottom: 1px solid var(--border);
+                   display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+    .bw-metrics { padding: 14px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .bw-chart-wrap { padding: 0 16px 16px; position: relative; height: 200px; }
+
+    /* ── Compare ── */
+    .cmp-section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin-bottom: 16px; }
+    .cmp-section h3 { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 14px; }
+    .cmp-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+    @media (max-width:900px) { .cmp-grid { grid-template-columns: 1fr; } }
+    .cmp-card { background: var(--surface2); border-radius: 8px; padding: 14px 16px; border-left: 3px solid; }
+    .cmp-card h4 { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+    .cmp-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+    .cmp-row:last-child { border-bottom: none; }
+    .cmp-label { color: var(--muted); }
+    .cmp-winner { color: var(--green); font-weight: 700; }
+    .cmp-loser  { color: var(--muted); }
+    .cmp-chart-wrap { position: relative; height: 340px; }
   </style>
 </head>
 <body>
@@ -384,24 +422,53 @@
     </div>
   </div>
 
-  <!-- ── The Wheel ── -->
-  <div class="wheel-header">
-    <div class="wheel-flow">
-      <div class="wf-step wf-csp">① Sell CSP</div>
-      <div class="wf-arrow">→</div>
-      <div class="wf-step wf-expire">Expires Worthless<br><span>Keep premium · Repeat</span></div>
-      <div class="wf-arrow" style="opacity:.3">↺</div>
-      <div class="wf-step wf-assign">Assigned<br><span>Own 100 shares @ strike</span></div>
-      <div class="wf-arrow">→</div>
-      <div class="wf-step wf-cc">② Sell CC</div>
-      <div class="wf-arrow">→</div>
-      <div class="wf-step wf-expire">Expires Worthless<br><span>Keep premium · Sell CC again</span></div>
-      <div class="wf-arrow" style="opacity:.3">↺</div>
-      <div class="wf-step wf-called">Called Away<br><span>Full cycle complete</span></div>
-    </div>
+  <!-- ── Strategy Tabs ── -->
+  <div class="strat-tabs">
+    <button class="strat-tab active" id="tab-wheel"    onclick="switchTab('wheel')">⚙ The Wheel — If Assigned</button>
+    <button class="strat-tab"        id="tab-buywrite" onclick="switchTab('buywrite')">📈 Buy+Write — Buy Shares &amp; Sell CC</button>
+    <button class="strat-tab"        id="tab-compare"  onclick="switchTab('compare')">⚖ Side-by-Side Comparison</button>
   </div>
 
-  <div id="wheelSection" style="margin-bottom:20px;"></div>
+  <!-- Wheel tab -->
+  <div id="tab-content-wheel" class="tab-content">
+    <div class="wheel-header">
+      <div class="wheel-flow">
+        <div class="wf-step wf-csp">① Sell CSP</div>
+        <div class="wf-arrow">→</div>
+        <div class="wf-step wf-expire">Expires Worthless<br><span>Keep premium · Repeat</span></div>
+        <div class="wf-arrow" style="opacity:.3">↺</div>
+        <div class="wf-step wf-assign">Assigned<br><span>Own shares @ strike</span></div>
+        <div class="wf-arrow">→</div>
+        <div class="wf-step wf-cc">② Sell CC</div>
+        <div class="wf-arrow">→</div>
+        <div class="wf-step wf-expire">Expires Worthless<br><span>Keep premium · Repeat CC</span></div>
+        <div class="wf-arrow" style="opacity:.3">↺</div>
+        <div class="wf-step wf-called">Called Away<br><span>Full cycle done</span></div>
+      </div>
+    </div>
+    <div id="wheelSection" style="margin-bottom:8px;"></div>
+  </div>
+
+  <!-- Buy+Write tab -->
+  <div id="tab-content-buywrite" class="tab-content" style="display:none;">
+    <div class="wheel-header">
+      <div class="wheel-flow">
+        <div class="wf-step wf-cc">① Buy IWM Shares</div>
+        <div class="wf-arrow">→</div>
+        <div class="wf-step wf-csp">② Sell Covered Call</div>
+        <div class="wf-arrow">→</div>
+        <div class="wf-step wf-expire">Expires Worthless<br><span>Keep premium · Sell CC again</span></div>
+        <div class="wf-arrow" style="opacity:.3">↺</div>
+        <div class="wf-step wf-called">Called Away<br><span>Shares sold at CC strike</span></div>
+      </div>
+    </div>
+    <div id="buywriteSection" style="margin-bottom:8px;"></div>
+  </div>
+
+  <!-- Compare tab -->
+  <div id="tab-content-compare" class="tab-content" style="display:none;">
+    <div id="compareSection" style="margin-bottom:8px;"></div>
+  </div>
 
   <!-- Scenarios -->
   <div class="scenarios-card">
@@ -550,6 +617,8 @@ function calculate() {
   renderThetaChart(computed, S, T, r, sigma, DTE);
   renderRocPopCharts(S, T, r, sigma, DTE, contracts);
   renderWheelSection(computed, S, T, r, sigma, DTE);
+  const bwData = renderBuyWriteSection(S, T, r, sigma, DTE, contracts);
+  renderCompareSection(computed, bwData, S, T, r, sigma, DTE, contracts);
   renderScenarios(computed, S);
 }
 
@@ -921,6 +990,371 @@ function renderScenarios(computed, S) {
       ${cols.map(c=>`<td class="${c.result.includes('✓')?'td-g':c.result.includes('~')?'td-y':'td-r'}">${c.result}</td>`).join('')}
     </tr>`;
   }).join('');
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────
+function switchTab(name) {
+  ['wheel','buywrite','compare'].forEach(t => {
+    document.getElementById(`tab-content-${t}`).style.display = t === name ? '' : 'none';
+    document.getElementById(`tab-${t}`).classList.toggle('active', t === name);
+  });
+}
+
+// ── Call strike from target delta (binary search) ─────────────────────────
+function callStrikeFromDelta(S, targetDelta, T, r, sigma) {
+  // call delta ∈ [0,1]; higher K → lower delta
+  let lo = S * 0.90, hi = S * 1.60;
+  for (let i = 0; i < 80; i++) {
+    const mid = (lo + hi) / 2;
+    const d = bsCall(S, mid, T, r, sigma).delta;
+    if (d > targetDelta) lo = mid;
+    else hi = mid;
+  }
+  return Math.round((lo + hi) / 2 / 0.5) * 0.5;
+}
+
+// ── Buy+Write Section ─────────────────────────────────────────────────────
+function renderBuyWriteSection(S, T, r, sigma, DTE, contracts) {
+  const f  = (v, d=2) => isNaN(v) ? '—' : v.toFixed(d);
+  const fd = (v, d=2) => (v>=0?'+$':'-$') + Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+
+  // Same 3 delta levels as CSP strategies, but for calls
+  const BW_STRATEGIES = [
+    { id:'ag', label:'Aggressive', targetDelta: 0.40, color:'#f85149', desc:'Higher premium · Less upside' },
+    { id:'mo', label:'Moderate',   targetDelta: 0.25, color:'#d29922', desc:'Balanced premium · Moderate upside' },
+    { id:'ba', label:'Balanced',   targetDelta: 0.15, color:'#3fb950', desc:'Lower premium · More upside room' },
+  ];
+
+  const shareCost  = S * 100 * contracts;   // capital to buy shares
+  const cards = BW_STRATEGIES.map(strat => {
+    const K      = callStrikeFromDelta(S, strat.targetDelta, T, r, sigma);
+    const cc     = bsCall(S, K, T, r, sigma);
+    const P      = Math.max(0.01, cc.price);
+    const be     = S - P;                              // per share break-even
+    const maxProfit = (K - S + P) * 100 * contracts;  // if called away
+    const maxLoss   = (S - P) * 100 * contracts;       // stock → $0
+    const roc       = (P / S) * 100;
+    const annROC    = roc * (365 / DTE);
+    const distPct   = ((K - S) / S) * 100;
+    // P&L if just stock held (no CC, for reference)
+    const stockOnlyROC = 0; // no income at entry
+
+    return { ...strat, K, P, be, maxProfit, maxLoss, roc, annROC, distPct,
+             delta: cc.delta, theta: cc.theta, contracts, S, DTE, shareCost };
+  });
+
+  const cardsHTML = cards.map(c => `
+    <div class="bw-card">
+      <div class="bw-header" style="border-left:4px solid ${c.color}">
+        <div>
+          <div style="font-size:15px;font-weight:700;color:${c.color}">${c.label}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${c.desc}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:10px;color:var(--muted)">CALL DELTA</div>
+          <div style="font-size:22px;font-weight:700;color:${c.color};border:2px solid ${c.color};padding:2px 10px;border-radius:8px;background:${c.color}11">+${f(c.delta,2)}</div>
+        </div>
+      </div>
+
+      <div class="bw-cost-row">
+        <div class="wa-item">
+          <div class="lbl">Buy IWM @</div>
+          <div class="val td-b">$${f(c.S)}</div>
+        </div>
+        <div class="wa-item">
+          <div class="lbl">Capital Required</div>
+          <div class="val td-muted">$${Math.round(c.shareCost).toLocaleString()}</div>
+        </div>
+        <div class="wa-item">
+          <div class="lbl">vs CSP Capital</div>
+          <div class="val td-r">+${f(((c.S/c.K)-1)*100,1)}% more</div>
+        </div>
+      </div>
+
+      <div class="bw-metrics">
+        <div class="sm-row">
+          <div><div class="lbl">CC Strike</div><div class="val" style="color:${c.color}">$${f(c.K)}</div></div>
+          <div><div class="lbl">CC Premium</div><div class="val td-g">$${f(c.P)}</div></div>
+        </div>
+        <div class="sm-row">
+          <div><div class="lbl">Max Profit (if called)</div><div class="val td-g">${fd(c.maxProfit)}</div></div>
+          <div><div class="lbl">Break-Even</div><div class="val td-y">$${f(c.be)}</div></div>
+        </div>
+        <div class="sm-cell">
+          <div class="lbl">ROC on Share Capital</div>
+          <div class="val" style="color:${c.color}">${f(c.roc,2)}%</div>
+          <div class="sub">CC income only · ${c.DTE}d</div>
+        </div>
+        <div class="sm-cell">
+          <div class="lbl">Annualized ROC</div>
+          <div class="val" style="color:${c.color}">${f(c.annROC,1)}%</div>
+          <div class="sub">CC income only</div>
+        </div>
+        <div class="sm-cell">
+          <div class="lbl">Strike Distance</div>
+          <div class="val">${f(c.distPct,1)}% OTM</div>
+          <div class="sub">Call above spot</div>
+        </div>
+        <div class="sm-cell">
+          <div class="lbl">Max Loss (stock→$0)</div>
+          <div class="val td-r">-$${Math.round(c.maxLoss).toLocaleString()}</div>
+          <div class="sub">CC buffers by $${f(c.P)}/sh</div>
+        </div>
+        <div class="sm-row">
+          <div><div class="lbl">Theta / day</div><div class="val td-g">+$${f(Math.abs(c.theta)*100*c.contracts,2)}</div></div>
+          <div><div class="lbl">Upside Cap</div><div class="val">$${f(c.K)} / share</div></div>
+        </div>
+      </div>
+    </div>`).join('');
+
+  // Combined P&L chart for Buy+Write
+  const bwPnlId = 'bwPnlChart';
+  document.getElementById('buywriteSection').innerHTML = `
+    <div style="font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">
+      Buy+Write — Buy ${100*contracts} IWM Shares @ $${f(S)} + Sell Covered Call
+    </div>
+    <div class="bw-cards">${cardsHTML}</div>
+    <div class="chart-card" style="margin-top:16px;">
+      <h3>Buy+Write P&L at Expiration vs Pure Stock Hold</h3>
+      <div style="position:relative;height:400px;"><canvas id="${bwPnlId}"></canvas></div>
+      <div id="bwKeyLevels" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);"></div>
+    </div>`;
+
+  // Draw P&L chart
+  renderBWPnlChart(cards, S, contracts);
+  return cards;
+}
+
+function renderBWPnlChart(cards, S, contracts) {
+  const ctx = document.getElementById('bwPnlChart')?.getContext('2d');
+  if (!ctx) return;
+  if (charts.bwPnl) charts.bwPnl.destroy();
+
+  const lo = S * 0.72, hi = S * 1.20, steps = 200;
+  const labels = Array.from({length:steps+1}, (_,i) => (lo+(hi-lo)*(i/steps)).toFixed(2));
+
+  const stockDataset = {
+    label: 'Stock Only (no CC)',
+    data: labels.map(l => (parseFloat(l) - S) * 100 * contracts),
+    borderColor: '#58a6ff',
+    borderWidth: 1.5,
+    borderDash: [6,4],
+    pointRadius: 0,
+    backgroundColor: 'transparent',
+    tension: 0,
+  };
+
+  const ccDatasets = cards.map(c => ({
+    label: `${c.label} CC ($${c.K})`,
+    data: labels.map(l => {
+      const price = parseFloat(l);
+      return price >= c.K
+        ? (c.K - S + c.P) * 100 * contracts
+        : (price - S + c.P) * 100 * contracts;
+    }),
+    borderColor: c.color,
+    backgroundColor: 'transparent',
+    borderWidth: 2.5,
+    pointRadius: 0,
+    tension: 0,
+  }));
+
+  charts.bwPnl = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets: [stockDataset, ...ccDatasets] },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'top', labels: { color: '#e6edf3', font: { size: 13, family:'monospace' }, padding: 20, boxWidth: 28, boxHeight: 3 } },
+        tooltip: {
+          backgroundColor: '#1c2330', borderColor: '#30363d', borderWidth: 1,
+          titleColor: '#8b949e', bodyColor: '#e6edf3', padding: 12,
+          titleFont: { size: 13, family:'monospace' }, bodyFont: { size: 13, family:'monospace' },
+          callbacks: {
+            title: items => `IWM @ $${parseFloat(items[0].label).toFixed(2)}`,
+            label: item => `  ${item.dataset.label}: ${item.raw>=0?'+':''}$${item.raw.toFixed(2)}`,
+          }
+        }
+      },
+      scales: {
+        x: { grid:{color:'#1c2330'}, ticks:{color:'#adbac7',font:{size:12},maxTicksLimit:10,maxRotation:0,callback:(_,i)=>`$${parseFloat(labels[i]).toFixed(0)}`},
+             title:{display:true,text:'IWM Price at Expiration',color:'#8b949e',font:{size:13},padding:{top:10}} },
+        y: { grid:{color:'#1c2330'}, ticks:{color:'#adbac7',font:{size:12},callback:v=>`${v>=0?'+':''}$${v.toLocaleString('en-US')}`},
+             title:{display:true,text:'Profit / Loss ($)',color:'#8b949e',font:{size:13}} }
+      }
+    },
+    plugins: [{
+      id:'bwlines',
+      afterDraw(chart) {
+        const {ctx, scales:{x,y}, chartArea} = chart;
+        const y0 = y.getPixelForValue(0);
+        ctx.save(); ctx.strokeStyle='#555e6a'; ctx.lineWidth=1.5; ctx.setLineDash([]);
+        ctx.beginPath(); ctx.moveTo(chartArea.left,y0); ctx.lineTo(chartArea.right,y0); ctx.stroke(); ctx.restore();
+        const drawV = (price, color, dash) => {
+          const idx = labels.findIndex(l => parseFloat(l) >= price);
+          if (idx < 0) return;
+          const xp = x.getPixelForValue(idx);
+          ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=1.5; ctx.setLineDash(dash);
+          ctx.beginPath(); ctx.moveTo(xp,chartArea.top); ctx.lineTo(xp,chartArea.bottom); ctx.stroke(); ctx.restore();
+        };
+        drawV(S, '#58a6ff', []);
+        cards.forEach(c => drawV(c.K, c.color, [6,3]));
+        cards.forEach(c => drawV(c.be, c.color, [2,4]));
+      }
+    }]
+  });
+
+  // Key levels strip
+  const strip = document.getElementById('bwKeyLevels');
+  if (strip) {
+    const chip = (lbl, val, color) =>
+      `<div style="display:flex;align-items:center;gap:8px;background:${color}11;border:1px solid ${color}44;border-radius:6px;padding:6px 14px;">
+        <span style="width:20px;height:3px;background:${color};display:inline-block;border-radius:2px;flex-shrink:0;"></span>
+        <span style="font-size:12px;color:#8b949e;">${lbl}</span>
+        <span style="font-size:15px;font-weight:700;color:${color};">${val}</span>
+      </div>`;
+    strip.innerHTML = chip('Spot', `$${S.toFixed(2)}`, '#58a6ff') +
+      cards.map(c => chip(`${c.label} CC Strike`, `$${c.K.toFixed(2)}`, c.color) +
+                     chip(`${c.label} B/E`, `$${c.be.toFixed(2)}`, c.color)).join('');
+  }
+}
+
+// ── Side-by-Side Comparison ───────────────────────────────────────────────
+function renderCompareSection(cspData, bwData, S, T, r, sigma, DTE, contracts) {
+  const f  = (v,d=2) => isNaN(v)?'—':v.toFixed(d);
+  const fd = (v,d=2) => (v>=0?'+$':'-$')+Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+
+  const labels = ['Aggressive','Moderate','Balanced'];
+  const colors = ['#f85149','#d29922','#3fb950'];
+
+  const compCards = labels.map((lbl, i) => {
+    const csp = cspData[i];
+    const bw  = bwData[i];
+    const capDiff = bw.shareCost - csp.capReq;
+
+    const rows = [
+      { label:'Capital Required', cspVal:`$${csp.capReq.toLocaleString()}`,    bwVal:`$${Math.round(bw.shareCost).toLocaleString()}`,  winner: 'csp', note:'CSP needs less cash' },
+      { label:'Premium Collected',cspVal:`$${f(csp.P)} / share`,              bwVal:`$${f(bw.P)} / share`,  winner: csp.P >= bw.P ? 'csp':'bw' },
+      { label:'ROC (per cycle)',   cspVal:`${f(csp.roc)}%`,                   bwVal:`${f(bw.roc)}%`,        winner: csp.roc >= bw.roc ? 'csp':'bw' },
+      { label:'Annualized ROC',   cspVal:`${f(csp.annROC,1)}%`,               bwVal:`${f(bw.annROC,1)}%`,   winner: csp.annROC >= bw.annROC ? 'csp':'bw' },
+      { label:'Break-Even',       cspVal:`$${f(csp.be)}`,                     bwVal:`$${f(bw.be)}`,         winner: csp.be <= bw.be ? 'csp':'bw', note:'Lower = safer' },
+      { label:'Max Loss (stock→$0)',cspVal:`-$${Math.round(csp.maxLoss).toLocaleString()}`, bwVal:`-$${Math.round(bw.maxLoss).toLocaleString()}`, winner: csp.maxLoss <= bw.maxLoss ? 'csp':'bw', note:'Lower is better' },
+      { label:'Prob of Profit',   cspVal:`${f(csp.pop,1)}%`,                  bwVal:'See B/E',              winner:'csp' },
+    ];
+
+    const rowsHTML = rows.map(row => `
+      <div class="cmp-row">
+        <span class="cmp-label">${row.label}</span>
+        <span class="${row.winner==='csp'?'cmp-winner':'cmp-loser'}" title="${row.winner==='csp'?'CSP wins':''}">⚙ ${row.cspVal}</span>
+        <span class="${row.winner==='bw'?'cmp-winner':'cmp-loser'}" title="${row.winner==='bw'?'Buy+Write wins':''}">📈 ${row.bwVal}</span>
+      </div>`).join('');
+
+    return `
+      <div class="cmp-card" style="border-color:${colors[i]}">
+        <h4 style="color:${colors[i]}">${lbl}</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;font-size:10px;color:var(--muted);padding:4px 0 8px;border-bottom:1px solid var(--border);margin-bottom:6px;">
+          <span>Metric</span><span style="text-align:center">⚙ Wheel CSP</span><span style="text-align:right">📈 Buy+Write</span>
+        </div>
+        ${rowsHTML}
+        <div style="margin-top:10px;padding:8px;background:${colors[i]}0d;border-radius:6px;font-size:11px;color:var(--muted);">
+          Extra capital for Buy+Write: <span style="color:${colors[i]};font-weight:700;">+$${Math.round(capDiff).toLocaleString()}</span>
+          · Leverage from CSP: <span style="color:${colors[i]};font-weight:700;">${f(bw.shareCost/csp.capReq,2)}×</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Combined overlay P&L chart
+  const lo = S*0.72, hi = S*1.20, steps = 200;
+  const chartLabels = Array.from({length:steps+1},(_,i)=>(lo+(hi-lo)*(i/steps)).toFixed(2));
+
+  document.getElementById('compareSection').innerHTML = `
+    <div class="cmp-section">
+      <h3>⚖ CSP Wheel vs Buy+Write — Metric Comparison</h3>
+      <div style="display:flex;gap:16px;margin-bottom:14px;font-size:12px;color:var(--muted);">
+        <span>⚙ = Wheel CSP strategy</span>
+        <span>📈 = Buy+Write strategy</span>
+        <span style="color:var(--green);">■ = Winner</span>
+      </div>
+      <div class="cmp-grid">${compCards}</div>
+    </div>
+    <div class="cmp-section">
+      <h3>P&L Overlay — CSP Wheel vs Buy+Write at Expiration</h3>
+      <div class="cmp-chart-wrap"><canvas id="cmpChart"></canvas></div>
+      <div id="cmpKeyLevels" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);"></div>
+    </div>`;
+
+  // Render overlay chart
+  setTimeout(() => {
+    const ctx = document.getElementById('cmpChart')?.getContext('2d');
+    if (!ctx) return;
+    if (charts.cmp) charts.cmp.destroy();
+
+    const datasets = [
+      ...cspData.map(c => ({
+        label: `⚙ CSP ${c.label} (K=$${c.K})`,
+        data: chartLabels.map(l => {
+          const p = parseFloat(l);
+          return p >= c.K ? c.P*100*contracts : (p - c.be)*100*contracts;
+        }),
+        borderColor: c.color, backgroundColor:'transparent', borderWidth:2.5,
+        pointRadius:0, tension:0, borderDash: [],
+      })),
+      ...bwData.map(c => ({
+        label: `📈 B+W ${c.label} (K=$${c.K})`,
+        data: chartLabels.map(l => {
+          const p = parseFloat(l);
+          return p >= c.K ? (c.K-S+c.P)*100*contracts : (p-S+c.P)*100*contracts;
+        }),
+        borderColor: c.color, backgroundColor:'transparent', borderWidth:2,
+        pointRadius:0, tension:0, borderDash: [6,3],
+      })),
+    ];
+
+    charts.cmp = new Chart(ctx, {
+      type:'line', data:{labels:chartLabels, datasets},
+      options:{
+        responsive:true, maintainAspectRatio:false, animation:{duration:300},
+        interaction:{mode:'index',intersect:false},
+        plugins:{
+          legend:{position:'top',labels:{color:'#e6edf3',font:{size:12,family:'monospace'},padding:16,boxWidth:28,boxHeight:3}},
+          tooltip:{backgroundColor:'#1c2330',borderColor:'#30363d',borderWidth:1,
+            titleColor:'#8b949e',bodyColor:'#e6edf3',padding:12,
+            titleFont:{size:13,family:'monospace'},bodyFont:{size:12,family:'monospace'},
+            callbacks:{title:items=>`IWM @ $${parseFloat(items[0].label).toFixed(2)}`,
+              label:item=>`  ${item.dataset.label}: ${item.raw>=0?'+':''}$${item.raw.toFixed(2)}`}}
+        },
+        scales:{
+          x:{grid:{color:'#1c2330'},ticks:{color:'#adbac7',font:{size:12},maxTicksLimit:10,maxRotation:0,callback:(_,i)=>`$${parseFloat(chartLabels[i]).toFixed(0)}`},
+             title:{display:true,text:'IWM Price at Expiration',color:'#8b949e',font:{size:13},padding:{top:10}}},
+          y:{grid:{color:'#1c2330'},ticks:{color:'#adbac7',font:{size:12},callback:v=>`${v>=0?'+':''}$${v.toLocaleString('en-US')}`},
+             title:{display:true,text:'Profit / Loss ($)',color:'#8b949e',font:{size:13}}}
+        }
+      },
+      plugins:[{id:'cmplines',afterDraw(chart){
+        const {ctx,scales:{x,y},chartArea}=chart;
+        const y0=y.getPixelForValue(0);
+        ctx.save();ctx.strokeStyle='#555e6a';ctx.lineWidth=1.5;ctx.setLineDash([]);
+        ctx.beginPath();ctx.moveTo(chartArea.left,y0);ctx.lineTo(chartArea.right,y0);ctx.stroke();ctx.restore();
+        const drawV=(price,color,dash)=>{
+          const idx=chartLabels.findIndex(l=>parseFloat(l)>=price);if(idx<0)return;
+          const xp=x.getPixelForValue(idx);
+          ctx.save();ctx.strokeStyle=color;ctx.lineWidth=1;ctx.setLineDash(dash);
+          ctx.beginPath();ctx.moveTo(xp,chartArea.top);ctx.lineTo(xp,chartArea.bottom);ctx.stroke();ctx.restore();
+        };
+        drawV(S,'#58a6ff',[]);
+      }}]
+    });
+
+    const strip = document.getElementById('cmpKeyLevels');
+    if (strip) {
+      const chip=(lbl,val,color)=>`<div style="display:flex;align-items:center;gap:8px;background:${color}11;border:1px solid ${color}44;border-radius:6px;padding:5px 12px;">
+        <span style="width:16px;height:3px;background:${color};display:inline-block;border-radius:2px;flex-shrink:0;"></span>
+        <span style="font-size:11px;color:#8b949e;">${lbl}</span>
+        <span style="font-size:14px;font-weight:700;color:${color};">${val}</span></div>`;
+      strip.innerHTML = chip('Spot', `$${S.toFixed(2)}`, '#58a6ff');
+    }
+  }, 50);
 }
 
 // ── Wheel Strategy ────────────────────────────────────────────────────────
