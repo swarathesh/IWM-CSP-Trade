@@ -220,9 +220,9 @@
   </div>
   <div class="cfg-divider"></div>
   <div class="cfg-field">
-    <label>Your Capital % <span class="cfg-tag">Margin</span></label>
-    <input type="number" id="cfgMarginPct" value="100" min="1" max="100" step="1"
-           title="How much of the notional you put up. 100% = fully cash-secured. 20% = margin account." />
+    <label>Your Capital ($) <span class="cfg-tag">Margin</span></label>
+    <input type="number" id="cfgCapital" value="" placeholder="e.g. 10000" step="100" min="0"
+           title="Cash you are putting in. Anything above this needed to secure the put is borrowed on margin." />
   </div>
   <div class="cfg-field">
     <label>Margin Interest % <span class="cfg-tag">Annual</span></label>
@@ -415,12 +415,12 @@ function calculate() {
   const ivPct      = parseFloat(document.getElementById('cfgIV').value) || 22;
   const contracts  = parseInt(document.getElementById('cfgContracts').value) || 1;
   const rfrPct     = parseFloat(document.getElementById('cfgRFR').value) || 5.3;
-  const marginPct  = Math.min(100, Math.max(1, parseFloat(document.getElementById('cfgMarginPct').value) || 100));
-  const marginRate = parseFloat(document.getElementById('cfgMarginRate').value) || 6.5;
-  const T          = DTE / 365;
-  const sigma      = ivPct / 100;
-  const r          = rfrPct / 100;
-  const usingMargin = marginPct < 100;
+  const capitalInput = parseFloat(document.getElementById('cfgCapital').value);
+  const marginRate   = parseFloat(document.getElementById('cfgMarginRate').value) || 6.5;
+  const T            = DTE / 365;
+  const sigma        = ivPct / 100;
+  const r            = rfrPct / 100;
+  const hasCapital   = !isNaN(capitalInput) && capitalInput > 0;
 
   const computed = STRATEGIES.map(strat => {
     const K      = strikeFromDelta(S, strat.targetDelta, T, r, sigma);
@@ -438,18 +438,17 @@ function calculate() {
     const yieldPct  = (P / S) * 100;
     const pop = normCDF((Math.log(S / be) - (r - 0.5*sigma*sigma)*T) / (sigma*Math.sqrt(T))) * 100;
 
-    // Margin metrics
-    const yourCapital    = capReq * (marginPct / 100);          // cash you put up
-    const borrowed       = capReq - yourCapital;                // broker lends this
-    const interestCost   = borrowed * (marginRate / 100) * T;  // interest for this cycle
-    const netPremium     = maxProfit - interestCost;            // after paying interest
-    const marginROC      = (netPremium / yourCapital) * 100;
-    const annMarginROC   = marginROC * (365 / DTE);
-    const leverage       = 1 / (marginPct / 100);
-    // Max loss on your capital: stock→$0, you lose full notional but only put up yourCapital
-    // Effective max loss = capReq - maxProfit (net cost of assignment at $0)
-    // On your capital that equals the full position loss minus what you borrowed
-    const marginMaxLoss  = maxLoss - borrowed;  // your out-of-pocket at total wipeout
+    // Margin metrics — computed from user's actual dollar input
+    const yourCapital  = hasCapital ? Math.min(capitalInput, capReq) : capReq;
+    const borrowed     = capReq - yourCapital;
+    const usingMargin  = borrowed > 0;
+    const marginPct    = (yourCapital / capReq) * 100;
+    const interestCost = borrowed * (marginRate / 100) * T;
+    const netPremium   = maxProfit - interestCost;
+    const marginROC    = (netPremium / yourCapital) * 100;
+    const annMarginROC = marginROC * (365 / DTE);
+    const leverage     = capReq / yourCapital;
+    const marginMaxLoss = maxLoss - borrowed;   // your out-of-pocket at stock → $0
 
     return { ...strat, K, P, T, r, sigma, DTE, S, contracts,
              be, maxProfit, maxLoss, capReq, roc, annROC, distPct, yieldPct, pop,
@@ -474,7 +473,7 @@ function renderStratCard(c) {
   const fd = v => (v>=0?'+$':'-$') + Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 
   const marginSection = c.usingMargin ? `
-    <div class="sm-section-header">MARGIN ACCOUNT · ${c.marginPct}% Your Capital · ${(100-c.marginPct)}% Borrowed</div>
+    <div class="sm-section-header">MARGIN ACCOUNT · You put in $${Math.round(c.yourCapital).toLocaleString()} · Broker lends $${Math.round(c.borrowed).toLocaleString()} (${(100-c.marginPct).toFixed(1)}%)</div>
     <div class="sm-row" style="border:1px solid ${c.color}33;">
       <div><div class="lbl">Your Capital</div><div class="val td-b">$${Math.round(c.yourCapital).toLocaleString()}</div></div>
       <div><div class="lbl">Borrowed</div><div class="val td-muted">$${Math.round(c.borrowed).toLocaleString()}</div></div>
@@ -947,7 +946,7 @@ function setApiKey() {
 }
 
 // Auto-recalculate when any config changes
-['cfgDTE','cfgIV','cfgContracts','cfgRFR','cfgMarginPct','cfgMarginRate'].forEach(id =>
+['cfgDTE','cfgIV','cfgContracts','cfgRFR','cfgCapital','cfgMarginRate'].forEach(id =>
   document.getElementById(id).addEventListener('change', () => { if (currentPrice) calculate(); })
 );
 
