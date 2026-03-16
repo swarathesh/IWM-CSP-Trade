@@ -269,6 +269,32 @@
     .cmp-winner { color: var(--green); font-weight: 700; }
     .cmp-loser  { color: var(--muted); }
     .cmp-chart-wrap { position: relative; height: 340px; }
+
+    /* ── Risk Dashboard ── */
+    .risk-section {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 18px 20px; margin-bottom: 20px;
+    }
+    .risk-section-title {
+      font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px;
+      margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+    }
+    .risk-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 20px; }
+    @media (max-width:900px) { .risk-grid { grid-template-columns: 1fr; } }
+    .risk-card {
+      background: var(--surface2); border-radius: 10px; padding: 16px;
+      border: 1px solid var(--border);
+    }
+    .risk-metric {
+      background: var(--surface); border-radius: 6px; padding: 8px 10px;
+    }
+    .risk-metric .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 2px; }
+    .risk-metric .val { font-size: 14px; font-weight: 700; }
+    .risk-metric .sub { font-size: 10px; color: var(--muted); margin-top: 1px; }
+    .risk-table-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin-bottom: 16px; }
+    .risk-summary { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+    .risk-rr-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+    @media (max-width:900px) { .risk-rr-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -492,6 +518,9 @@
       </tbody>
     </table>
   </div>
+
+  <!-- Risk Dashboard -->
+  <div id="riskDashboard"></div>
 </main>
 
 <footer>IWM CSP Dashboard · Prices via Yahoo Finance · For educational purposes only · Not financial advice</footer>
@@ -620,6 +649,7 @@ function calculate() {
   const bwData = renderBuyWriteSection(S, T, r, sigma, DTE, contracts);
   renderCompareSection(computed, bwData, S, T, r, sigma, DTE, contracts);
   renderScenarios(computed, S);
+  renderRiskDashboard(computed, S);
 }
 
 // ── Strategy Card ─────────────────────────────────────────────────────────
@@ -1489,6 +1519,235 @@ function renderWheelSection(computed, S, T, r, sigma, DTE) {
       The Wheel — Step ② If Assigned
     </div>
     <div class="wheel-cards">${cards}</div>`;
+}
+
+// ── Risk Dashboard ────────────────────────────────────────────────────────
+function renderRiskDashboard(computed, S) {
+  const f  = (v, d=2) => isNaN(v) || !isFinite(v) ? '—' : v.toFixed(d);
+  const fd = (v, d=2) => (v>=0?'+$':'-$') + Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+
+  // Risk score 1–10 (lower = safer)
+  // Components: delta magnitude, leverage, assignment probability
+  function calcRiskScore(c) {
+    const deltaScore    = Math.abs(c.delta) * 12;                    // 0.15→1.8, 0.40→4.8
+    const leverageScore = Math.max(0, (c.leverage - 1) * 2);        // 0 if cash-secured
+    const assignScore   = (1 - c.pop / 100) * 3;                    // 0.15Δ~85%POP→0.45
+    return Math.min(10, Math.max(1, deltaScore + leverageScore + assignScore));
+  }
+
+  // Estimated margin call trigger price (25% maintenance margin)
+  function marginCallPrice(c) {
+    if (!c.usingMargin) return null;
+    const maintenance = c.capReq * 0.25;
+    // Equity = yourCapital − unrealized loss; margin call when equity < maintenance
+    // Loss at price p (below strike) = (K − p) × 100 × contracts
+    // yourCapital − (K − p) × 100 × contracts = maintenance
+    const p = c.K - (c.yourCapital - maintenance) / (100 * c.contracts);
+    return Math.max(0, p);
+  }
+
+  const gapScenarios = [
+    { pct: -0.03, label: 'Gap  −3%' },
+    { pct: -0.05, label: 'Dip  −5%' },
+    { pct: -0.08, label: 'Drop −8%' },
+    { pct: -0.10, label: 'Bear −10%' },
+    { pct: -0.15, label: 'Sell −15%' },
+    { pct: -0.20, label: 'Crash −20%' },
+    { pct: -0.30, label: 'Crisis −30%' },
+  ];
+
+  // ── Per-strategy risk cards
+  const stratCards = computed.map(c => {
+    const score      = calcRiskScore(c);
+    const mcPrice    = marginCallPrice(c);
+    const pctToStrike = ((S - c.K) / S * 100);
+    const pctToBE     = ((S - c.be) / S * 100);
+    const assignProb  = (100 - c.pop).toFixed(1);
+    const maxLossPct  = ((c.usingMargin ? c.marginMaxLoss : c.maxLoss) / (c.usingMargin ? c.yourCapital : c.capReq) * 100).toFixed(1);
+    const riskColor   = score >= 6 ? '#f85149' : score >= 3.5 ? '#d29922' : '#3fb950';
+    const riskLabel   = score >= 6 ? 'HIGH RISK' : score >= 3.5 ? 'MODERATE' : 'LOW RISK';
+    const barWidth    = (score / 10 * 100).toFixed(1);
+
+    return `
+      <div class="risk-card" style="border-top:3px solid ${c.color}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+          <div>
+            <div style="font-size:15px;font-weight:700;color:${c.color}">${c.label}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">Δ ${f(c.delta,3)} · Strike $${f(c.K)} · ${c.DTE}d</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:10px;color:var(--muted)">RISK SCORE</div>
+            <div style="font-size:26px;font-weight:700;color:${riskColor};line-height:1">${score.toFixed(1)}<span style="font-size:12px;color:var(--muted)">/10</span></div>
+            <div style="font-size:10px;font-weight:700;color:${riskColor}">${riskLabel}</div>
+          </div>
+        </div>
+
+        <!-- Risk bar -->
+        <div style="background:var(--surface);border-radius:4px;height:7px;margin-bottom:14px;overflow:hidden;">
+          <div style="width:${barWidth}%;height:100%;background:linear-gradient(90deg,#3fb950 0%,#d29922 50%,#f85149 100%);border-radius:4px;transition:width .4s;"></div>
+        </div>
+
+        <!-- Cushion metrics -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+          <div class="risk-metric">
+            <div class="lbl">OTM Cushion</div>
+            <div class="val" style="color:#3fb950">${f(pctToStrike,1)}%</div>
+            <div class="sub">to strike $${f(c.K)}</div>
+          </div>
+          <div class="risk-metric">
+            <div class="lbl">B/E Cushion</div>
+            <div class="val" style="color:#d29922">${f(pctToBE,1)}%</div>
+            <div class="sub">to B/E $${f(c.be)}</div>
+          </div>
+          <div class="risk-metric">
+            <div class="lbl">Assignment Prob</div>
+            <div class="val" style="color:#f85149">${assignProb}%</div>
+            <div class="sub">chance in-the-money</div>
+          </div>
+          <div class="risk-metric">
+            <div class="lbl">Max Loss / Capital</div>
+            <div class="val" style="color:#f85149">−${maxLossPct}%</div>
+            <div class="sub">${c.usingMargin ? 'on your capital' : 'full notional'}</div>
+          </div>
+        </div>
+
+        ${mcPrice !== null ? `
+        <div style="background:rgba(248,81,73,.08);border:1px solid #f8514944;border-radius:8px;padding:10px 12px;margin-bottom:12px;">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">⚠ Margin Call Trigger (est.)</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-size:20px;font-weight:700;color:#f85149">$${f(mcPrice)}</div>
+            <div style="font-size:11px;color:var(--muted)">IWM drops ${f(((S-mcPrice)/S)*100,1)}% from spot</div>
+          </div>
+          <div style="font-size:10px;color:#8b949e;margin-top:4px;">25% maintenance margin assumed · Verify exact levels with your broker</div>
+        </div>` : `
+        <div style="background:rgba(63,185,80,.06);border:1px solid #3fb95033;border-radius:8px;padding:10px 12px;margin-bottom:12px;">
+          <div style="font-size:11px;color:#3fb950">✓ Cash-Secured — No margin call risk</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:3px;">Full notional held as collateral</div>
+        </div>`}
+
+        <!-- Greek risks -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding-top:10px;border-top:1px solid var(--border);">
+          <div style="font-size:11px;color:var(--muted)">Theta/day
+            <span style="color:#3fb950;font-weight:700;margin-left:4px;">+$${f(Math.abs(c.theta)*100*c.contracts,2)}</span>
+          </div>
+          <div style="font-size:11px;color:var(--muted)">Vega/1%IV
+            <span style="color:#f85149;font-weight:700;margin-left:4px;">$${f(c.vega*100*c.contracts,2)}</span>
+          </div>
+          <div style="font-size:11px;color:var(--muted)">Gamma
+            <span style="color:#d29922;font-weight:700;margin-left:4px;">${f(c.gamma,4)}</span>
+          </div>
+          <div style="font-size:11px;color:var(--muted)">Daily $-risk (Δ)
+            <span style="color:#f85149;font-weight:700;margin-left:4px;">$${f(Math.abs(c.delta)*c.S*0.01*100*c.contracts,2)}</span>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  // ── Gap-down risk table
+  const gapRows = gapScenarios.map(g => {
+    const price    = S * (1 + g.pct);
+    const moveCls  = 'td-r';
+    const cols = computed.map(c => {
+      const pnl    = price >= c.K ? c.P*100*c.contracts : (price - c.be)*100*c.contracts;
+      const pnlPct = (pnl / c.capReq * 100);
+      const status = price >= c.K ? '✓ Expires' : price >= c.be ? '~ Near B/E' : '✗ Assigned';
+      return { pnl, pnlPct, status };
+    });
+    return `<tr>
+      <td style="font-weight:600">${g.label}</td>
+      <td class="td-b">$${price.toFixed(2)}</td>
+      ${cols.map(c => `
+        <td class="${c.pnl>=0?'td-g':'td-r'}" style="white-space:nowrap">
+          ${c.pnl>=0?'+':''}$${Math.round(Math.abs(c.pnl))}<br>
+          <span style="font-size:10px;color:var(--muted)">${c.pnlPct>=0?'+':''}${c.pnlPct.toFixed(1)}%</span>
+        </td>
+        <td class="${c.status.includes('✓')?'td-g':c.status.includes('~')?'td-y':'td-r'}" style="font-size:11px">${c.status}</td>
+      `).join('')}
+    </tr>`;
+  }).join('');
+
+  // ── Risk/Reward summary
+  const rrCards = computed.map(c => {
+    const score     = calcRiskScore(c);
+    const riskColor = score >= 6 ? '#f85149' : score >= 3.5 ? '#d29922' : '#3fb950';
+    const rrRatio   = (c.annROC / Math.max(0.01, Math.abs(c.maxLoss / c.capReq) * 100)).toFixed(2);
+    const verdict   = score <= 2.5 ? { label: 'Conservative', color: '#3fb950' }
+                    : score <= 4.5 ? { label: 'Balanced',     color: '#d29922' }
+                    : score <= 6.5 ? { label: 'Aggressive',   color: '#ffa657' }
+                    :                { label: 'Speculative',  color: '#f85149' };
+    return `
+      <div style="background:var(--surface2);border-radius:8px;padding:14px 16px;border-left:3px solid ${c.color}">
+        <div style="font-size:13px;font-weight:700;color:${c.color};margin-bottom:10px">${c.label}
+          <span style="float:right;font-size:11px;font-weight:600;color:${verdict.color};background:${verdict.color}18;padding:2px 8px;border-radius:4px;">${verdict.label}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
+          <div>
+            <div style="color:var(--muted);font-size:10px;margin-bottom:2px">Risk Score</div>
+            <div style="color:${riskColor};font-weight:700;font-size:16px">${score.toFixed(1)}<span style="font-size:10px;color:var(--muted)">/10</span></div>
+          </div>
+          <div>
+            <div style="color:var(--muted);font-size:10px;margin-bottom:2px">Ann. ROC</div>
+            <div style="color:#3fb950;font-weight:700;font-size:16px">${f(c.annROC,1)}%</div>
+          </div>
+          <div>
+            <div style="color:var(--muted);font-size:10px;margin-bottom:2px">Prob of Profit</div>
+            <div style="font-weight:700">${f(c.pop,1)}%</div>
+          </div>
+          <div>
+            <div style="color:var(--muted);font-size:10px;margin-bottom:2px">R/R Ratio</div>
+            <div style="color:#58a6ff;font-weight:700" title="Annualized ROC ÷ Max Loss %">${rrRatio}</div>
+          </div>
+          <div>
+            <div style="color:var(--muted);font-size:10px;margin-bottom:2px">Max Profit</div>
+            <div style="color:#3fb950;font-weight:700">${fd(c.maxProfit)}</div>
+          </div>
+          <div>
+            <div style="color:var(--muted);font-size:10px;margin-bottom:2px">Max Loss</div>
+            <div style="color:#f85149;font-weight:700">−$${Math.round(c.usingMargin ? c.marginMaxLoss : c.maxLoss).toLocaleString()}</div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('riskDashboard').innerHTML = `
+    <div class="risk-section">
+      <div class="risk-section-title">
+        <span style="color:#f85149;font-size:14px;">⚠</span>
+        Risk Dashboard — Per-Strategy Analysis
+      </div>
+      <div class="risk-grid">${stratCards}</div>
+    </div>
+
+    <div class="risk-table-card">
+      <h3 style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px;">
+        Gap-Down Risk — P&L &amp; Status at Various Price Drops
+      </h3>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Scenario</th>
+              <th>IWM Price</th>
+              <th colspan="2" style="color:#f85149">Aggressive</th>
+              <th colspan="2" style="color:#d29922">Moderate</th>
+              <th colspan="2" style="color:#3fb950">Balanced</th>
+            </tr>
+          </thead>
+          <tbody>${gapRows}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="risk-summary">
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px;">
+        Risk/Reward Summary — All Strategies
+      </div>
+      <div class="risk-rr-grid">${rrCards}</div>
+      <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);">
+        R/R Ratio = Annualized ROC ÷ Max Loss% · Higher is better · Risk Score 1 (safest) → 10 (most risk)
+        · Margin call estimate uses 25% maintenance margin — verify actual levels with your broker.
+      </div>
+    </div>`;
 }
 
 // ── Price Fetch ───────────────────────────────────────────────────────────
