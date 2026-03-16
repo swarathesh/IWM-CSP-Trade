@@ -12,7 +12,7 @@
       --surface2: #1c2330;
       --border: #30363d;
       --text: #e6edf3;
-      --text-muted: #8b949e;
+      --muted: #8b949e;
       --green: #3fb950;
       --red: #f85149;
       --yellow: #d29922;
@@ -21,401 +21,294 @@
       --orange: #ffa657;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-      font-size: 14px;
-      min-height: 100vh;
-    }
+    body { background: var(--bg); color: var(--text); font-family: 'SF Mono','Fira Code','Cascadia Code',monospace; font-size: 14px; }
+
+    /* ── Header ── */
     header {
       background: var(--surface);
       border-bottom: 1px solid var(--border);
-      padding: 16px 24px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 12px;
+      padding: 14px 24px;
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
     }
-    header h1 {
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--blue);
-      letter-spacing: -0.5px;
-    }
-    header h1 span { color: var(--text-muted); font-weight: 400; }
-    .live-price-box {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 10px 18px;
-    }
-    .ticker { font-size: 13px; color: var(--text-muted); }
-    .price-val { font-size: 28px; font-weight: 700; color: var(--text); }
-    .price-change { font-size: 13px; font-weight: 600; }
-    .pos { color: var(--green); }
-    .neg { color: var(--red); }
-    .price-time { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-    .refresh-btn {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      color: var(--blue);
-      border-radius: 6px;
-      padding: 6px 14px;
-      cursor: pointer;
-      font-family: inherit;
-      font-size: 12px;
-      transition: background 0.15s;
-    }
-    .refresh-btn:hover { background: #21262d; }
-    .status-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: var(--yellow);
-      display: inline-block;
-      margin-right: 6px;
-    }
+    .hdr-left h1 { font-size: 18px; font-weight: 700; color: var(--blue); }
+    .hdr-left h1 span { color: var(--muted); font-weight: 400; }
+    .hdr-left .api-status { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 5px; margin-top: 3px; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--yellow); display: inline-block; }
     .status-dot.live { background: var(--green); animation: pulse 2s infinite; }
     .status-dot.error { background: var(--red); }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .price-box { display: flex; align-items: center; gap: 14px; }
+    .price-ticker { font-size: 11px; color: var(--muted); }
+    .price-val { font-size: 30px; font-weight: 700; }
+    .price-chg { font-size: 12px; font-weight: 600; }
+    .price-time { font-size: 10px; color: var(--muted); margin-top: 2px; }
+    .pos { color: var(--green); } .neg { color: var(--red); }
+    .hdr-btns { display: flex; gap: 8px; }
+    .btn-sm {
+      background: var(--surface2); border: 1px solid var(--border); color: var(--blue);
+      border-radius: 6px; padding: 6px 14px; cursor: pointer; font-family: inherit; font-size: 12px;
+    }
+    .btn-sm:hover { background: #21262d; }
 
+    /* ── Config bar ── */
+    .config-bar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap;
+    }
+    .cfg-field label { display: block; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .7px; margin-bottom: 4px; }
+    .cfg-field input, .cfg-field select {
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+      border-radius: 6px; font-family: inherit; font-size: 14px; padding: 7px 11px;
+      width: 110px; outline: none;
+    }
+    .cfg-field input:focus { border-color: var(--blue); }
+    .cfg-note { font-size: 11px; color: var(--muted); align-self: center; padding-top: 16px; }
+    .recalc-btn {
+      background: var(--blue); color: #0d1117; border: none; border-radius: 6px;
+      padding: 8px 20px; font-family: inherit; font-size: 13px; font-weight: 700;
+      cursor: pointer; margin-top: 14px;
+    }
+    .recalc-btn:hover { opacity: .85; }
+
+    /* ── Main ── */
     main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
 
-    /* Input Panel */
-    .input-panel {
+    /* ── Strategy cards ── */
+    .strategies-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 22px;
+    }
+    @media (max-width: 900px) { .strategies-grid { grid-template-columns: 1fr; } }
+    .strat-card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 20px 24px;
-      margin-bottom: 20px;
-    }
-    .input-panel h2 { font-size: 14px; color: var(--text-muted); margin-bottom: 16px; letter-spacing: 1px; text-transform: uppercase; }
-    .inputs-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-      gap: 14px;
-      align-items: end;
-    }
-    .field label {
-      display: block;
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-bottom: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-    }
-    .field input, .field select {
-      width: 100%;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      font-family: inherit;
-      font-size: 14px;
-      padding: 8px 12px;
-      outline: none;
-      transition: border-color 0.15s;
-    }
-    .field input:focus, .field select:focus { border-color: var(--blue); }
-    .field input[readonly] { color: var(--blue); cursor: default; }
-    .calc-btn {
-      background: var(--blue);
-      color: #0d1117;
-      border: none;
-      border-radius: 6px;
-      padding: 10px 20px;
-      font-family: inherit;
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-      height: 38px;
-      transition: opacity 0.15s;
-    }
-    .calc-btn:hover { opacity: 0.85; }
-    .strike-presets { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
-    .preset-btn {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      color: var(--text-muted);
-      border-radius: 4px;
-      padding: 4px 10px;
-      font-family: inherit;
-      font-size: 11px;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .preset-btn:hover { border-color: var(--blue); color: var(--blue); }
-
-    /* Metrics Cards */
-    .metrics-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 14px;
-      margin-bottom: 20px;
-    }
-    .metric-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 16px 18px;
-      position: relative;
+      border-radius: 12px;
       overflow: hidden;
     }
-    .metric-card::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 3px;
+    .strat-header {
+      padding: 14px 18px 10px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
     }
-    .metric-card.green::before { background: var(--green); }
-    .metric-card.red::before { background: var(--red); }
-    .metric-card.blue::before { background: var(--blue); }
-    .metric-card.yellow::before { background: var(--yellow); }
-    .metric-card.purple::before { background: var(--purple); }
-    .metric-card.orange::before { background: var(--orange); }
-    .metric-label {
-      font-size: 11px;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      margin-bottom: 8px;
+    .strat-name { font-size: 15px; font-weight: 700; }
+    .strat-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .delta-badge {
+      font-size: 22px; font-weight: 700;
+      padding: 4px 12px; border-radius: 8px;
+      border: 2px solid;
+      text-align: center;
     }
-    .metric-value {
-      font-size: 26px;
-      font-weight: 700;
-      line-height: 1.1;
-    }
-    .metric-card.green .metric-value { color: var(--green); }
-    .metric-card.red .metric-value { color: var(--red); }
-    .metric-card.blue .metric-value { color: var(--blue); }
-    .metric-card.yellow .metric-value { color: var(--yellow); }
-    .metric-card.purple .metric-value { color: var(--purple); }
-    .metric-card.orange .metric-value { color: var(--orange); }
-    .metric-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    .delta-label { font-size: 10px; color: var(--muted); text-align: center; margin-top: 2px; }
 
-    /* Charts */
-    .charts-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      margin-bottom: 20px;
-    }
+    /* card accent colors */
+    .strat-card.aggressive .strat-header { border-left: 4px solid var(--red); }
+    .strat-card.moderate   .strat-header { border-left: 4px solid var(--yellow); }
+    .strat-card.balanced   .strat-header { border-left: 4px solid var(--green); }
+    .strat-card.aggressive .strat-name { color: var(--red); }
+    .strat-card.moderate   .strat-name { color: var(--yellow); }
+    .strat-card.balanced   .strat-name { color: var(--green); }
+    .strat-card.aggressive .delta-badge { color: var(--red); border-color: var(--red); background: rgba(248,81,73,.08); }
+    .strat-card.moderate   .delta-badge { color: var(--yellow); border-color: var(--yellow); background: rgba(210,153,34,.08); }
+    .strat-card.balanced   .delta-badge { color: var(--green); border-color: var(--green); background: rgba(63,185,80,.08); }
+
+    .strat-metrics { padding: 14px 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .sm-row { grid-column: 1/-1; display: flex; justify-content: space-between; align-items: center;
+              background: var(--surface2); border-radius: 6px; padding: 8px 12px; }
+    .sm-row .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+    .sm-row .val { font-size: 16px; font-weight: 700; }
+    .sm-cell { background: var(--surface2); border-radius: 6px; padding: 8px 12px; }
+    .sm-cell .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 3px; }
+    .sm-cell .val { font-size: 15px; font-weight: 700; }
+    .sm-cell .sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+    .strat-card.aggressive .val-profit { color: var(--red); }
+    .strat-card.moderate   .val-profit { color: var(--yellow); }
+    .strat-card.balanced   .val-profit { color: var(--green); }
+
+    /* ── Charts ── */
+    .charts-row { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; margin-bottom: 20px; }
     @media (max-width: 900px) { .charts-row { grid-template-columns: 1fr; } }
-    .chart-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 18px 20px;
-    }
-    .chart-card h3 {
-      font-size: 13px;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      margin-bottom: 16px;
-    }
-    .chart-wrap { position: relative; height: 300px; }
+    .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+    .chart-card h3 { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 14px; }
+    .chart-wrap { position: relative; height: 280px; }
     .chart-wrap-sm { position: relative; height: 220px; }
 
-    /* Scenarios Table */
-    .scenarios-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 18px 20px;
-      margin-bottom: 20px;
-      overflow-x: auto;
-    }
-    .scenarios-card h3 {
-      font-size: 13px;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      margin-bottom: 14px;
-    }
-    table { width: 100%; border-collapse: collapse; }
-    th {
-      text-align: left;
-      font-size: 11px;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      padding: 8px 12px;
-      border-bottom: 1px solid var(--border);
-    }
-    td {
-      padding: 9px 12px;
-      font-size: 13px;
-      border-bottom: 1px solid #1c2330;
-    }
+    /* ── Greeks row ── */
+    .greeks-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 20px; }
+    @media (max-width: 900px) { .greeks-row { grid-template-columns: 1fr; } }
+    .greeks-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+    .greeks-card h3 { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 12px; }
+    .greeks-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .g-item { background: var(--surface2); border-radius: 6px; padding: 8px 10px; }
+    .g-name { font-size: 10px; color: var(--muted); margin-bottom: 3px; }
+    .g-val { font-size: 17px; font-weight: 700; }
+    .g-desc { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+    /* ── Scenarios ── */
+    .scenarios-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin-bottom: 20px; overflow-x: auto; }
+    .scenarios-card h3 { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { text-align: left; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; padding: 7px 10px; border-bottom: 1px solid var(--border); }
+    td { padding: 8px 10px; border-bottom: 1px solid var(--surface2); }
     tr:last-child td { border-bottom: none; }
     tr:hover td { background: var(--surface2); }
-    .td-green { color: var(--green); }
-    .td-red { color: var(--red); }
-    .td-yellow { color: var(--yellow); }
-    .td-blue { color: var(--blue); }
+    .td-g { color: var(--green); }
+    .td-r { color: var(--red); }
+    .td-y { color: var(--yellow); }
+    .td-b { color: var(--blue); }
+    .td-muted { color: var(--muted); }
 
-    /* Greeks Card */
-    .greeks-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      margin-bottom: 20px;
-    }
-    @media (max-width: 700px) { .greeks-row { grid-template-columns: 1fr; } }
-    .greeks-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 18px 20px;
-    }
-    .greeks-card h3 {
-      font-size: 13px;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      margin-bottom: 14px;
-    }
-    .greeks-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .greek-item {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 10px 12px;
-    }
-    .greek-name { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
-    .greek-val { font-size: 20px; font-weight: 700; color: var(--text); }
-    .greek-desc { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
     .alert-box {
-      background: #1a1a2e;
-      border: 1px solid var(--yellow);
-      border-radius: 8px;
-      padding: 12px 16px;
-      margin-bottom: 20px;
-      font-size: 12px;
-      color: var(--yellow);
+      background: rgba(248,81,73,.08); border: 1px solid var(--red);
+      border-radius: 8px; padding: 10px 14px; margin-bottom: 16px;
+      font-size: 12px; color: var(--red); display: none;
     }
-    .api-status {
-      font-size: 12px;
-      color: var(--text-muted);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    footer {
-      text-align: center;
-      padding: 20px;
-      color: var(--text-muted);
-      font-size: 11px;
-      border-top: 1px solid var(--border);
-      margin-top: 10px;
-    }
-    .placeholder { color: var(--text-muted); font-style: italic; }
+    footer { text-align: center; padding: 16px; color: var(--muted); font-size: 11px; border-top: 1px solid var(--border); }
   </style>
 </head>
 <body>
 
 <header>
-  <div>
+  <div class="hdr-left">
     <h1>IWM <span>/ Cash-Secured Put Dashboard</span></h1>
     <div class="api-status">
       <span class="status-dot" id="statusDot"></span>
-      <span id="statusText">Fetching price...</span>
+      <span id="statusText">Fetching price…</span>
     </div>
   </div>
-  <div class="live-price-box">
+  <div class="price-box">
     <div>
-      <div class="ticker">IWM · iShares Russell 2000 ETF</div>
+      <div class="price-ticker">IWM · iShares Russell 2000 ETF</div>
       <div class="price-val" id="livePrice">—</div>
-      <div class="price-change" id="priceChange">—</div>
+      <div class="price-chg" id="priceChange">—</div>
       <div class="price-time" id="priceTime"></div>
     </div>
-    <button class="refresh-btn" onclick="fetchPrice()">↻ Refresh</button>
-    <button class="refresh-btn" onclick="setApiKey()" title="Add a free Alpha Vantage key as fallback">🔑 API Key</button>
+  </div>
+  <div class="hdr-btns">
+    <button class="btn-sm" onclick="fetchPrice()">↻ Refresh</button>
+    <button class="btn-sm" onclick="setApiKey()">🔑 API Key</button>
   </div>
 </header>
 
+<!-- Config bar: only global params -->
+<div class="config-bar">
+  <div class="cfg-field">
+    <label>Days to Expiry (DTE)</label>
+    <input type="number" id="cfgDTE" value="30" min="1" max="365" />
+  </div>
+  <div class="cfg-field">
+    <label>Implied Vol IV %</label>
+    <input type="number" id="cfgIV" value="22" step="0.5" min="1" />
+  </div>
+  <div class="cfg-field">
+    <label>Contracts</label>
+    <input type="number" id="cfgContracts" value="1" min="1" />
+  </div>
+  <div class="cfg-field">
+    <label>Risk-Free Rate %</label>
+    <input type="number" id="cfgRFR" value="5.3" step="0.1" />
+  </div>
+  <button class="recalc-btn" onclick="calculate()">Recalculate</button>
+  <div class="cfg-note">Strikes &amp; premiums calculated automatically via Black-Scholes at target delta.</div>
+</div>
+
 <main>
+  <div id="alertBox" class="alert-box"></div>
 
-  <div class="input-panel">
-    <h2>CSP Parameters</h2>
-    <div class="inputs-grid">
-      <div class="field">
-        <label>Underlying Price</label>
-        <input type="number" id="inpUnderlying" placeholder="auto-filled" readonly />
+  <!-- 3 strategy cards -->
+  <div class="strategies-grid">
+    <div class="strat-card aggressive" id="card-aggressive">
+      <div class="strat-header">
+        <div>
+          <div class="strat-name">Aggressive</div>
+          <div class="strat-desc">High premium · High assignment risk</div>
+        </div>
+        <div>
+          <div class="delta-badge" id="ag-delta">—</div>
+          <div class="delta-label">PUT DELTA</div>
+        </div>
       </div>
-      <div class="field">
-        <label>Strike Price ($)</label>
-        <input type="number" id="inpStrike" placeholder="e.g. 205" step="0.5" />
-      </div>
-      <div class="field">
-        <label>Premium Collected ($)</label>
-        <input type="number" id="inpPremium" placeholder="e.g. 2.50" step="0.01" />
-      </div>
-      <div class="field">
-        <label>Days to Expiry (DTE)</label>
-        <input type="number" id="inpDTE" placeholder="e.g. 30" min="1" />
-      </div>
-      <div class="field">
-        <label>Implied Vol (IV %)</label>
-        <input type="number" id="inpIV" placeholder="e.g. 22" step="0.1" />
-      </div>
-      <div class="field">
-        <label>Contracts</label>
-        <input type="number" id="inpContracts" value="1" min="1" />
-      </div>
-      <div class="field">
-        <button class="calc-btn" onclick="calculate()">Calculate</button>
+      <div class="strat-metrics" id="ag-metrics">
+        <div class="sm-row" style="grid-column:1/-1"><span class="lbl">Loading…</span></div>
       </div>
     </div>
-    <div class="strike-presets" id="strikePresets">
-      <span style="font-size:11px;color:var(--text-muted);margin-right:4px;">Quick strikes:</span>
+    <div class="strat-card moderate" id="card-moderate">
+      <div class="strat-header">
+        <div>
+          <div class="strat-name">Moderate</div>
+          <div class="strat-desc">Balanced premium · Medium risk</div>
+        </div>
+        <div>
+          <div class="delta-badge" id="mo-delta">—</div>
+          <div class="delta-label">PUT DELTA</div>
+        </div>
+      </div>
+      <div class="strat-metrics" id="mo-metrics">
+        <div class="sm-row" style="grid-column:1/-1"><span class="lbl">Loading…</span></div>
+      </div>
+    </div>
+    <div class="strat-card balanced" id="card-balanced">
+      <div class="strat-header">
+        <div>
+          <div class="strat-name">Balanced</div>
+          <div class="strat-desc">Conservative · Lower premium · Safer</div>
+        </div>
+        <div>
+          <div class="delta-badge" id="ba-delta">—</div>
+          <div class="delta-label">PUT DELTA</div>
+        </div>
+      </div>
+      <div class="strat-metrics" id="ba-metrics">
+        <div class="sm-row" style="grid-column:1/-1"><span class="lbl">Loading…</span></div>
+      </div>
     </div>
   </div>
 
-  <div id="alertBox" class="alert-box" style="display:none;"></div>
-
-  <div class="metrics-grid" id="metricsGrid">
-    <!-- populated by JS -->
-  </div>
-
+  <!-- Charts -->
   <div class="charts-row">
     <div class="chart-card">
-      <h3>P&amp;L at Expiration</h3>
-      <div class="chart-wrap">
-        <canvas id="pnlChart"></canvas>
-      </div>
+      <h3>P&amp;L at Expiration — All Strategies</h3>
+      <div class="chart-wrap"><canvas id="pnlChart"></canvas></div>
     </div>
     <div class="chart-card">
       <h3>Theta Decay — Premium Over Time</h3>
-      <div class="chart-wrap">
-        <canvas id="thetaChart"></canvas>
-      </div>
+      <div class="chart-wrap"><canvas id="thetaChart"></canvas></div>
     </div>
   </div>
 
+  <!-- Greeks per strategy -->
   <div class="greeks-row">
     <div class="greeks-card">
-      <h3>Options Greeks (Black-Scholes)</h3>
-      <div class="greeks-grid" id="greeksGrid">
-        <div class="greek-item"><div class="greek-name">Delta</div><div class="greek-val placeholder">—</div><div class="greek-desc">Price sensitivity</div></div>
-        <div class="greek-item"><div class="greek-name">Theta</div><div class="greek-val placeholder">—</div><div class="greek-desc">Daily time decay</div></div>
-        <div class="greek-item"><div class="greek-name">Gamma</div><div class="greek-val placeholder">—</div><div class="greek-desc">Delta change rate</div></div>
-        <div class="greek-item"><div class="greek-name">Vega</div><div class="greek-val placeholder">—</div><div class="greek-desc">IV sensitivity /1%</div></div>
-      </div>
+      <h3 style="color:var(--red)">Aggressive Greeks</h3>
+      <div class="greeks-grid" id="greeks-aggressive"></div>
     </div>
-    <div class="chart-card">
-      <h3>Return on Capital vs Strike Distance</h3>
-      <div class="chart-wrap-sm">
-        <canvas id="rocChart"></canvas>
-      </div>
+    <div class="greeks-card">
+      <h3 style="color:var(--yellow)">Moderate Greeks</h3>
+      <div class="greeks-grid" id="greeks-moderate"></div>
+    </div>
+    <div class="greeks-card">
+      <h3 style="color:var(--green)">Balanced Greeks</h3>
+      <div class="greeks-grid" id="greeks-balanced"></div>
     </div>
   </div>
 
+  <!-- ROC chart row -->
+  <div class="charts-row">
+    <div class="chart-card">
+      <h3>Annualized ROC vs Delta Spectrum</h3>
+      <div class="chart-wrap"><canvas id="rocChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>Probability of Profit vs Delta Spectrum</h3>
+      <div class="chart-wrap"><canvas id="popChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Scenarios -->
   <div class="scenarios-card">
     <h3>Scenario Analysis at Expiration</h3>
     <table>
@@ -424,659 +317,505 @@
           <th>Scenario</th>
           <th>IWM Price</th>
           <th>% Move</th>
-          <th>P&amp;L per Contract</th>
-          <th>Total P&amp;L</th>
-          <th>ROC</th>
-          <th>Result</th>
+          <th>Aggressive P&amp;L</th>
+          <th>Moderate P&amp;L</th>
+          <th>Balanced P&amp;L</th>
+          <th>Aggressive Result</th>
+          <th>Moderate Result</th>
+          <th>Balanced Result</th>
         </tr>
       </thead>
       <tbody id="scenariosTbody">
-        <tr><td colspan="7" style="color:var(--text-muted);text-align:center;padding:20px;">Enter parameters and click Calculate</td></tr>
+        <tr><td colspan="9" style="color:var(--muted);text-align:center;padding:20px;">Waiting for price data…</td></tr>
       </tbody>
     </table>
   </div>
-
 </main>
 
-<footer>
-  IWM CSP Dashboard · Prices via Yahoo Finance · For educational use only · Not financial advice
-</footer>
+<footer>IWM CSP Dashboard · Prices via Yahoo Finance · For educational purposes only · Not financial advice</footer>
 
 <script>
-// ─── State ───────────────────────────────────────────────────────────────────
+// ── State ────────────────────────────────────────────────────────────────────
 let currentPrice = null;
-let pnlChartInst = null;
-let thetaChartInst = null;
-let rocChartInst = null;
-const CHART_DEFAULTS = {
-  color: '#8b949e',
-  grid: '#1c2330',
-  font: "'SF Mono', 'Fira Code', monospace",
-};
+let charts = {};
 
-// ─── Fetch live IWM price ────────────────────────────────────────────────────
-async function fetchPrice() {
-  setStatus('loading', 'Fetching...');
+// Target deltas for each strategy (put delta is negative)
+const STRATEGIES = [
+  { id: 'aggressive', targetDelta: -0.40, label: 'Aggressive', color: '#f85149' },
+  { id: 'moderate',   targetDelta: -0.25, label: 'Moderate',   color: '#d29922' },
+  { id: 'balanced',   targetDelta: -0.15, label: 'Balanced',   color: '#3fb950' },
+];
 
-  // Check for user-supplied Alpha Vantage key in localStorage
-  const avKey = localStorage.getItem('av_api_key');
-
-  const sources = [
-    { fn: () => fetchViaAllOrigins(),        label: 'Yahoo Finance' },
-    { fn: () => fetchViaCodeTabs(),          label: 'Yahoo Finance' },
-    { fn: () => fetchViaThingProxy(),        label: 'Yahoo Finance' },
-    { fn: () => fetchViaJsonProxy(),         label: 'Yahoo Finance' },
-    ...(avKey ? [{ fn: () => fetchAlphaVantage(avKey), label: 'Alpha Vantage' }] : []),
-  ];
-
-  for (const src of sources) {
-    try {
-      const data = await src.fn();
-      if (data && data.price > 0) {
-        currentPrice = data.price;
-        renderPrice(data);
-        setStatus('live', `Live · ${src.label}`);
-        const inp = document.getElementById('inpUnderlying');
-        inp.value = data.price.toFixed(2);
-        inp.setAttribute('readonly', true);
-        buildStrikePresets(data.price);
-        return;
-      }
-    } catch (e) { /* try next */ }
-  }
-
-  // All sources failed
-  setStatus('error', 'All sources failed — see below');
-  document.getElementById('inpUnderlying').removeAttribute('readonly');
-  document.getElementById('inpUnderlying').placeholder = 'Enter price manually';
-  showAlert(
-    'Could not fetch IWM price automatically. ' +
-    'Enter it manually above, OR add a free Alpha Vantage API key: ' +
-    'get one free at alphavantage.co, then click "Set API Key" in the header.'
-  );
-}
-
-// Source 1: allorigins.win (most reliable CORS proxy, works from GitHub Pages)
-async function fetchViaAllOrigins() {
-  const url = 'https://query1.finance.yahoo.com/v8/finance/chart/IWM?interval=1d&range=1d';
-  const res = await fetch(
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-    { signal: AbortSignal.timeout(9000) }
-  );
-  if (!res.ok) throw new Error(res.status);
-  return parseYahooChart(await res.json());
-}
-
-// Source 2: codetabs proxy → Yahoo v7 quote endpoint
-async function fetchViaCodeTabs() {
-  const url = 'https://query1.finance.yahoo.com/v7/finance/quote?symbols=IWM';
-  const res = await fetch(
-    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-    { signal: AbortSignal.timeout(9000) }
-  );
-  if (!res.ok) throw new Error(res.status);
-  const json = await res.json();
-  const q = json?.quoteResponse?.result?.[0];
-  if (!q || !q.regularMarketPrice) throw new Error('no data');
-  return {
-    price: q.regularMarketPrice,
-    change: q.regularMarketChange ?? 0,
-    changePct: q.regularMarketChangePercent ?? 0,
-    time: q.regularMarketTime ? new Date(q.regularMarketTime * 1000) : new Date(),
-  };
-}
-
-// Source 3: thingproxy (freeboard)
-async function fetchViaThingProxy() {
-  const url = 'https://query1.finance.yahoo.com/v8/finance/chart/IWM?interval=1d&range=1d';
-  const res = await fetch(
-    `https://thingproxy.freeboard.io/fetch/${url}`,
-    { signal: AbortSignal.timeout(9000) }
-  );
-  if (!res.ok) throw new Error(res.status);
-  return parseYahooChart(await res.json());
-}
-
-// Source 4: jsonproxy.glitch.me (another free proxy)
-async function fetchViaJsonProxy() {
-  const url = 'https://query2.finance.yahoo.com/v8/finance/chart/IWM?interval=1d&range=1d';
-  const res = await fetch(
-    `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-    { signal: AbortSignal.timeout(9000) }
-  );
-  if (!res.ok) throw new Error(res.status);
-  const wrapper = await res.json();
-  return parseYahooChart(JSON.parse(wrapper.contents));
-}
-
-// Source 5: Alpha Vantage (requires free API key from alphavantage.co)
-async function fetchAlphaVantage(apiKey) {
-  const res = await fetch(
-    `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=IWM&apikey=${apiKey}`,
-    { signal: AbortSignal.timeout(10000) }
-  );
-  if (!res.ok) throw new Error(res.status);
-  const json = await res.json();
-  const q = json?.['Global Quote'];
-  if (!q || !q['05. price']) throw new Error('no data');
-  return {
-    price: parseFloat(q['05. price']),
-    change: parseFloat(q['09. change']),
-    changePct: parseFloat(q['10. change percent']),
-    time: new Date(),
-  };
-}
-
-function parseYahooChart(json) {
-  const meta = json?.chart?.result?.[0]?.meta;
-  if (!meta || !meta.regularMarketPrice) throw new Error('no meta');
-  const price = meta.regularMarketPrice;
-  const prev = meta.chartPreviousClose || meta.previousClose || price;
-  const change = price - prev;
-  const changePct = (change / prev) * 100;
-  return {
-    price,
-    change,
-    changePct,
-    time: meta.regularMarketTime ? new Date(meta.regularMarketTime * 1000) : new Date(),
-  };
-}
-
-function renderPrice(data) {
-  document.getElementById('livePrice').textContent = `$${data.price.toFixed(2)}`;
-  const sign = data.change >= 0 ? '+' : '';
-  const cls = data.change >= 0 ? 'pos' : 'neg';
-  document.getElementById('priceChange').innerHTML =
-    `<span class="${cls}">${sign}${data.change.toFixed(2)} (${sign}${data.changePct.toFixed(2)}%)</span>`;
-  document.getElementById('priceTime').textContent =
-    data.time ? `As of ${data.time.toLocaleTimeString()}` : '';
-}
-
-function setStatus(type, msg) {
-  const dot = document.getElementById('statusDot');
-  dot.className = 'status-dot' + (type === 'live' ? ' live' : type === 'error' ? ' error' : '');
-  document.getElementById('statusText').textContent = msg;
-}
-
-// ─── Strike Presets ──────────────────────────────────────────────────────────
-function buildStrikePresets(price) {
-  const container = document.getElementById('strikePresets');
-  container.innerHTML = '<span style="font-size:11px;color:var(--text-muted);margin-right:4px;">Quick strikes:</span>';
-  const levels = [
-    { label: 'ATM', pct: 0 },
-    { label: '2% OTM', pct: -0.02 },
-    { label: '5% OTM', pct: -0.05 },
-    { label: '7% OTM', pct: -0.07 },
-    { label: '10% OTM', pct: -0.10 },
-  ];
-  levels.forEach(l => {
-    const strike = Math.round((price * (1 + l.pct)) / 0.5) * 0.5;
-    const btn = document.createElement('button');
-    btn.className = 'preset-btn';
-    btn.textContent = `${l.label} $${strike.toFixed(0)}`;
-    btn.onclick = () => {
-      document.getElementById('inpStrike').value = strike.toFixed(1);
-    };
-    container.appendChild(btn);
-  });
-}
-
-// ─── Black-Scholes ────────────────────────────────────────────────────────────
+// ── Math: Black-Scholes ───────────────────────────────────────────────────────
 function normCDF(x) {
-  const a1=0.254829592, a2=-0.284496736, a3=1.421413741, a4=-1.453152027, a5=1.061405429, p=0.3275911;
-  const sign = x < 0 ? -1 : 1;
-  x = Math.abs(x) / Math.sqrt(2);
-  const t = 1 / (1 + p * x);
-  const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
-  return 0.5 * (1 + sign * y);
+  const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;
+  const sign=x<0?-1:1; x=Math.abs(x)/Math.sqrt(2);
+  const t=1/(1+p*x);
+  const y=1-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-x*x);
+  return 0.5*(1+sign*y);
 }
+function normPDF(x){ return Math.exp(-0.5*x*x)/Math.sqrt(2*Math.PI); }
 
-function normPDF(x) {
-  return Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI);
-}
-
-function blackScholesPut(S, K, T, r, sigma) {
-  if (T <= 0 || sigma <= 0) return { price: Math.max(K - S, 0), delta: -0.5, theta: 0, gamma: 0, vega: 0 };
-  const d1 = (Math.log(S / K) + (r + 0.5 * sigma * sigma) * T) / (sigma * Math.sqrt(T));
-  const d2 = d1 - sigma * Math.sqrt(T);
-  const price = K * Math.exp(-r * T) * normCDF(-d2) - S * normCDF(-d1);
-  const delta = normCDF(d1) - 1;
-  const gamma = normPDF(d1) / (S * sigma * Math.sqrt(T));
-  const theta = (-(S * normPDF(d1) * sigma) / (2 * Math.sqrt(T)) + r * K * Math.exp(-r * T) * normCDF(-d2)) / 365;
-  const vega = S * normPDF(d1) * Math.sqrt(T) / 100;
+function bsPut(S, K, T, r, sigma) {
+  if (T <= 0 || sigma <= 0) {
+    const intrinsic = Math.max(K-S,0);
+    return { price: intrinsic, delta: S<K?-1:-0.5, gamma:0, theta:0, vega:0 };
+  }
+  const d1 = (Math.log(S/K)+(r+0.5*sigma*sigma)*T)/(sigma*Math.sqrt(T));
+  const d2 = d1-sigma*Math.sqrt(T);
+  const price = K*Math.exp(-r*T)*normCDF(-d2)-S*normCDF(-d1);
+  const delta = normCDF(d1)-1;
+  const gamma = normPDF(d1)/(S*sigma*Math.sqrt(T));
+  const theta = (-(S*normPDF(d1)*sigma)/(2*Math.sqrt(T))+r*K*Math.exp(-r*T)*normCDF(-d2))/365;
+  const vega  = S*normPDF(d1)*Math.sqrt(T)/100;
   return { price, delta, gamma, theta, vega };
 }
 
-// ─── Main Calculate ──────────────────────────────────────────────────────────
-function calculate() {
-  const underlying = parseFloat(document.getElementById('inpUnderlying').value);
-  const strike = parseFloat(document.getElementById('inpStrike').value);
-  const premium = parseFloat(document.getElementById('inpPremium').value);
-  const dte = parseInt(document.getElementById('inpDTE').value);
-  const ivRaw = parseFloat(document.getElementById('inpIV').value);
-  const contracts = parseInt(document.getElementById('inpContracts').value) || 1;
-
-  if (!strike || !premium || !dte) {
-    showAlert('Please fill in Strike, Premium, and DTE fields.');
-    return;
+// Find the strike that gives a target put delta using binary search
+function strikeFromDelta(S, targetDelta, T, r, sigma) {
+  // put delta ∈ [-1, 0].  More negative = deeper ITM = higher K
+  // We search K in [S*0.4, S*1.1]
+  let lo = S * 0.4, hi = S * 1.05;
+  for (let i = 0; i < 80; i++) {
+    const mid = (lo + hi) / 2;
+    const d = bsPut(S, mid, T, r, sigma).delta;
+    if (d < targetDelta) hi = mid;   // delta too negative → K too high
+    else                 lo = mid;   // delta not negative enough → K too low
   }
+  const raw = (lo + hi) / 2;
+  return Math.round(raw / 0.5) * 0.5;  // round to nearest $0.50 strike
+}
+
+// ── Main Calculate ─────────────────────────────────────────────────────────
+function calculate() {
+  const S = currentPrice;
+  if (!S) { showAlert('Price not loaded yet — hit ↻ Refresh or enter manually.'); return; }
   hideAlert();
 
-  const S = underlying || currentPrice || strike;
-  const K = strike;
-  const P = premium;
-  const T = dte / 365;
-  const iv = ivRaw ? ivRaw / 100 : 0.20;
-  const r = 0.053; // ~5.3% risk-free rate
+  const DTE       = Math.max(1, parseInt(document.getElementById('cfgDTE').value) || 30);
+  const ivPct     = parseFloat(document.getElementById('cfgIV').value) || 22;
+  const contracts = parseInt(document.getElementById('cfgContracts').value) || 1;
+  const rfrPct    = parseFloat(document.getElementById('cfgRFR').value) || 5.3;
+  const T         = DTE / 365;
+  const sigma     = ivPct / 100;
+  const r         = rfrPct / 100;
 
-  // Core metrics
-  const maxProfit = P * 100 * contracts;
-  const breakEven = K - P;
-  const maxLoss = (breakEven) * 100 * contracts; // stock goes to $0
-  const capitalRequired = K * 100 * contracts;
-  const roc = (P / K) * 100;
-  const annualizedROC = roc * (365 / dte);
-  const distanceToStrike = S ? ((S - K) / S) * 100 : null;
-  const premiumYield = S ? (P / S) * 100 : null;
-  const intrinsicValue = Math.max(0, K - S);
-  const timeValue = Math.max(0, P - intrinsicValue);
-  const probProfit = S ? normCDF((Math.log(S / breakEven)) / (iv * Math.sqrt(T))) * 100 : null;
+  const computed = STRATEGIES.map(strat => {
+    const K      = strikeFromDelta(S, strat.targetDelta, T, r, sigma);
+    const bs     = bsPut(S, K, T, r, sigma);
+    const P      = Math.max(0.01, bs.price);   // theoretical premium
+    const be     = K - P;
+    const maxProfit  = P * 100 * contracts;
+    const maxLoss    = be * 100 * contracts;   // stock → $0
+    const capReq     = K * 100 * contracts;
+    const roc        = (P / K) * 100;
+    const annROC     = roc * (365 / DTE);
+    const distPct    = ((S - K) / S) * 100;
+    const yieldPct   = (P / S) * 100;
+    // prob of profit: log-normal P(S_T > be)
+    const pop = normCDF((Math.log(S / be) - (r - 0.5*sigma*sigma)*T) / (sigma*Math.sqrt(T))) * 100;
+    return { ...strat, K, P, T, r, sigma, DTE, S, contracts,
+             be, maxProfit, maxLoss, capReq, roc, annROC, distPct, yieldPct, pop,
+             delta: bs.delta, gamma: bs.gamma, theta: bs.theta, vega: bs.vega };
+  });
 
-  // Black-Scholes greeks
-  const bs = blackScholesPut(S, K, T, r, iv);
-
-  // Render metrics cards
-  renderMetrics({ maxProfit, maxLoss, breakEven, roc, annualizedROC, capitalRequired, distanceToStrike, premiumYield, probProfit, timeValue, intrinsicValue, contracts, premium, strike, S });
-
-  // Render greeks
-  renderGreeks(bs, contracts);
-
-  // Charts
-  renderPnLChart(S, K, P, contracts);
-  renderThetaChart(S, K, dte, r, iv, P, contracts);
-  renderRocChart(S, dte, r, iv, P, contracts);
-
-  // Scenarios
-  renderScenarios(S, K, P, contracts, capitalRequired);
+  computed.forEach(c => renderStratCard(c));
+  computed.forEach(c => renderGreeks(c));
+  renderPnLChart(computed, S);
+  renderThetaChart(computed, S, T, r, sigma, DTE);
+  renderRocPopCharts(S, T, r, sigma, DTE, contracts);
+  renderScenarios(computed, S);
 }
 
-// ─── Metrics Cards ────────────────────────────────────────────────────────────
-function renderMetrics(m) {
-  const grid = document.getElementById('metricsGrid');
-  const fmt = (n, dec=2) => n === null || isNaN(n) ? '—' : n.toFixed(dec);
-  const fmtDollar = (n) => n === null || isNaN(n) ? '—' : (n >= 0 ? '+$' : '-$') + Math.abs(n).toLocaleString('en-US', {minimumFractionDigits:2,maximumFractionDigits:2});
-  const fmtPct = (n, dec=2) => n === null || isNaN(n) ? '—' : fmt(n, dec) + '%';
+// ── Strategy Card ─────────────────────────────────────────────────────────
+function renderStratCard(c) {
+  document.getElementById(`${c.id.substring(0,2)}-delta`).textContent = c.delta.toFixed(2);
+  const m = document.getElementById(`${c.id.substring(0,2)}-metrics`);
+  const f = (v, dec=2) => v.toFixed(dec);
+  const fd = v => (v>=0?'+$':'-$') + Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 
-  const cards = [
-    { label: 'Max Profit', value: fmtDollar(m.maxProfit), sub: `$${fmt(m.premium)} × 100 × ${m.contracts} contracts`, color: 'green' },
-    { label: 'Max Loss', value: fmtDollar(-m.maxLoss), sub: `Stock goes to $0 (theoretical)`, color: 'red' },
-    { label: 'Break-Even', value: `$${fmt(m.breakEven)}`, sub: `Strike $${fmt(m.strike)} − Premium $${fmt(m.premium)}`, color: 'yellow' },
-    { label: 'Return on Capital', value: fmtPct(m.roc), sub: `Per contract cycle`, color: 'blue' },
-    { label: 'Annualized ROC', value: fmtPct(m.annualizedROC), sub: `Projected annual return`, color: 'purple' },
-    { label: 'Capital Required', value: `$${m.capitalRequired.toLocaleString()}`, sub: `${m.contracts} contract(s) × $${m.strike} × 100`, color: 'orange' },
-    { label: 'Prob. of Profit', value: m.probProfit !== null ? fmtPct(m.probProfit) : '—', sub: `Based on log-normal distribution`, color: 'green' },
-    { label: 'Strike Distance', value: m.distanceToStrike !== null ? fmtPct(m.distanceToStrike) : '—', sub: `Current price vs strike`, color: 'blue' },
-    { label: 'Premium Yield', value: m.premiumYield !== null ? fmtPct(m.premiumYield) : '—', sub: `Premium / Underlying price`, color: 'yellow' },
-    { label: 'Time Value', value: `$${fmt(m.timeValue)}`, sub: `Extrinsic value in premium`, color: 'purple' },
-  ];
-
-  grid.innerHTML = cards.map(c => `
-    <div class="metric-card ${c.color}">
-      <div class="metric-label">${c.label}</div>
-      <div class="metric-value">${c.value}</div>
-      <div class="metric-sub">${c.sub}</div>
+  m.innerHTML = `
+    <div class="sm-row">
+      <div><div class="lbl">Strike Price</div><div class="val td-b">$${f(c.K,2)}</div></div>
+      <div><div class="lbl">BS Premium</div><div class="val val-profit">$${f(c.P,2)}</div></div>
     </div>
-  `).join('');
-}
-
-// ─── Greeks ───────────────────────────────────────────────────────────────────
-function renderGreeks(bs, contracts) {
-  const grid = document.getElementById('greeksGrid');
-  const items = [
-    { name: 'Delta (Δ)', val: bs.delta.toFixed(3), desc: `${(bs.delta * 100).toFixed(1)}¢ per $1 move`, color: Math.abs(bs.delta) > 0.4 ? '#f85149' : '#e6edf3' },
-    { name: 'Theta (Θ)', val: (bs.theta * 100 * contracts).toFixed(2), desc: `$/day per contract`, color: '#3fb950' },
-    { name: 'Gamma (Γ)', val: bs.gamma.toFixed(4), desc: `Delta change per $1`, color: '#ffa657' },
-    { name: 'Vega (ν)', val: (bs.vega * 100 * contracts).toFixed(2), desc: `$ per 1% IV change`, color: '#bc8cff' },
-  ];
-  grid.innerHTML = items.map(i => `
-    <div class="greek-item">
-      <div class="greek-name">${i.name}</div>
-      <div class="greek-val" style="color:${i.color}">${i.val}</div>
-      <div class="greek-desc">${i.desc}</div>
+    <div class="sm-row">
+      <div><div class="lbl">Max Profit</div><div class="val td-g">${fd(c.maxProfit)}</div></div>
+      <div><div class="lbl">Break-Even</div><div class="val td-y">$${f(c.be,2)}</div></div>
     </div>
-  `).join('');
+    <div class="sm-cell">
+      <div class="lbl">Return on Capital</div>
+      <div class="val val-profit">${f(c.roc,2)}%</div>
+      <div class="sub">Per cycle (${c.DTE}d)</div>
+    </div>
+    <div class="sm-cell">
+      <div class="lbl">Annualized ROC</div>
+      <div class="val val-profit">${f(c.annROC,1)}%</div>
+      <div class="sub">Projected</div>
+    </div>
+    <div class="sm-cell">
+      <div class="lbl">Prob of Profit</div>
+      <div class="val">${f(c.pop,1)}%</div>
+      <div class="sub">Log-normal est.</div>
+    </div>
+    <div class="sm-cell">
+      <div class="lbl">Strike Distance</div>
+      <div class="val">${f(c.distPct,1)}% OTM</div>
+      <div class="sub">From spot $${f(c.S,2)}</div>
+    </div>
+    <div class="sm-row">
+      <div><div class="lbl">Capital Required</div><div class="val td-muted">$${c.capReq.toLocaleString()}</div></div>
+      <div><div class="lbl">Premium Yield</div><div class="val">${f(c.yieldPct,2)}%</div></div>
+    </div>
+  `;
 }
 
-// ─── P&L Chart ────────────────────────────────────────────────────────────────
-function renderPnLChart(S, K, P, contracts) {
+// ── Greeks ────────────────────────────────────────────────────────────────
+function renderGreeks(c) {
+  const el = document.getElementById(`greeks-${c.id}`);
+  const col = c.color;
+  el.innerHTML = [
+    { n:'Delta (Δ)', v: c.delta.toFixed(3),            desc: `${(c.delta*100).toFixed(1)}¢ / $1 move` },
+    { n:'Theta (Θ)', v: (c.theta*100*c.contracts).toFixed(2), desc: `$/day total` },
+    { n:'Gamma (Γ)', v: c.gamma.toFixed(4),             desc: `Delta Δ / $1` },
+    { n:'Vega (ν)',  v: (c.vega*100*c.contracts).toFixed(2),  desc: `$ / 1% IV chg` },
+  ].map(g => `
+    <div class="g-item">
+      <div class="g-name">${g.n}</div>
+      <div class="g-val" style="color:${col}">${g.v}</div>
+      <div class="g-desc">${g.desc}</div>
+    </div>`).join('');
+}
+
+// ── P&L Chart ─────────────────────────────────────────────────────────────
+function renderPnLChart(computed, S) {
   const ctx = document.getElementById('pnlChart').getContext('2d');
-  if (pnlChartInst) pnlChartInst.destroy();
+  if (charts.pnl) charts.pnl.destroy();
 
-  const breakEven = K - P;
-  const low = Math.max(0, K * 0.7);
-  const high = K * 1.2;
-  const steps = 200;
-  const labels = [], pnlData = [], colors = [];
+  const lo = S * 0.72, hi = S * 1.10, steps = 200;
+  const labels = [];
+  for (let i=0;i<=steps;i++) labels.push((lo+(hi-lo)*(i/steps)).toFixed(2));
 
-  for (let i = 0; i <= steps; i++) {
-    const price = low + (high - low) * (i / steps);
-    labels.push(price.toFixed(2));
-    const pnl = price >= K
-      ? P * 100 * contracts
-      : (price - breakEven) * 100 * contracts;
-    pnlData.push(pnl);
-    colors.push(pnl >= 0 ? 'rgba(63,185,80,0.8)' : 'rgba(248,81,73,0.8)');
-  }
+  const datasets = computed.map(c => ({
+    label: `${c.label} (K=$${c.K}, P=$${c.P.toFixed(2)})`,
+    data: labels.map(lbl => {
+      const price = parseFloat(lbl);
+      return price >= c.K ? c.P*100*c.contracts : (price - c.be)*100*c.contracts;
+    }),
+    borderColor: c.color,
+    backgroundColor: 'transparent',
+    borderWidth: 2.5,
+    pointRadius: 0,
+    tension: 0,
+  }));
 
-  // Gradient fill
-  const grad = ctx.createLinearGradient(0, 0, 0, 300);
-  grad.addColorStop(0, 'rgba(63,185,80,0.25)');
-  grad.addColorStop(0.5, 'rgba(63,185,80,0.05)');
-  grad.addColorStop(1, 'rgba(248,81,73,0.15)');
-
-  pnlChartInst = new Chart(ctx, {
+  charts.pnl = new Chart(ctx, {
     type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: 'P&L at Expiry',
-        data: pnlData,
-        borderColor: pnlData.map(v => v >= 0 ? '#3fb950' : '#f85149'),
-        borderWidth: 2.5,
-        pointRadius: 0,
-        fill: true,
-        backgroundColor: grad,
-        tension: 0,
-        segment: {
-          borderColor: ctx => ctx.p0.parsed.y >= 0 ? '#3fb950' : '#f85149',
-        },
-      }]
-    },
+    data: { labels, datasets },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: { duration: 400 },
+      responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
       plugins: {
-        legend: { display: false },
+        legend: { labels: { color: '#8b949e', font: { size: 11 } } },
         tooltip: {
-          backgroundColor: '#161b22',
-          borderColor: '#30363d',
-          borderWidth: 1,
-          titleColor: '#8b949e',
-          bodyColor: '#e6edf3',
+          backgroundColor: '#161b22', borderColor: '#30363d', borderWidth: 1,
+          titleColor: '#8b949e', bodyColor: '#e6edf3',
           callbacks: {
             title: items => `IWM @ $${parseFloat(items[0].label).toFixed(2)}`,
-            label: item => {
-              const v = item.raw;
-              return `P&L: ${v >= 0 ? '+' : ''}$${v.toFixed(2)}`;
-            }
-          }
-        },
-        annotation: { annotations: {} },
-      },
-      scales: {
-        x: {
-          grid: { color: CHART_DEFAULTS.grid },
-          ticks: {
-            color: '#8b949e', maxTicksLimit: 8,
-            callback: (_, i) => `$${parseFloat(labels[i]).toFixed(0)}`,
-          }
-        },
-        y: {
-          grid: { color: CHART_DEFAULTS.grid },
-          ticks: {
-            color: '#8b949e',
-            callback: v => `$${v >= 0 ? '+' : ''}${v.toFixed(0)}`,
+            label: item => `${item.dataset.label.split('(')[0].trim()}: ${item.raw>=0?'+':''}$${item.raw.toFixed(2)}`,
           }
         }
+      },
+      scales: {
+        x: { grid:{color:'#1c2330'}, ticks:{color:'#8b949e',maxTicksLimit:8,callback:(_,i)=>`$${parseFloat(labels[i]).toFixed(0)}`} },
+        y: { grid:{color:'#1c2330'}, ticks:{color:'#8b949e',callback:v=>`${v>=0?'+':''}$${v.toFixed(0)}`} }
       }
     },
     plugins: [{
-      id: 'lines',
+      id: 'vlines',
       afterDraw(chart) {
-        const { ctx, scales: { x, y } } = chart;
-        const drawVLine = (price, color, lbl) => {
+        const { ctx, scales:{x,y}, chartArea } = chart;
+        const drawV = (price, color, lbl) => {
           const idx = labels.findIndex(l => parseFloat(l) >= price);
           if (idx < 0) return;
-          const xPos = x.getPixelForValue(idx);
+          const xp = x.getPixelForValue(idx);
           ctx.save();
-          ctx.strokeStyle = color;
-          ctx.lineWidth = 1.5;
-          ctx.setLineDash([4, 4]);
-          ctx.beginPath();
-          ctx.moveTo(xPos, chart.chartArea.top);
-          ctx.lineTo(xPos, chart.chartArea.bottom);
-          ctx.stroke();
-          ctx.fillStyle = color;
-          ctx.font = '11px monospace';
-          ctx.fillText(lbl, xPos + 4, chart.chartArea.top + 14);
+          ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.setLineDash([4,4]);
+          ctx.beginPath(); ctx.moveTo(xp,chartArea.top); ctx.lineTo(xp,chartArea.bottom); ctx.stroke();
+          ctx.fillStyle = color; ctx.font = '10px monospace';
+          ctx.fillText(lbl, xp+3, chartArea.top+13);
           ctx.restore();
         };
-        drawVLine(K, '#d29922', `Strike $${K}`);
-        drawVLine(breakEven, '#f85149', `B/E $${breakEven.toFixed(2)}`);
-        if (S) drawVLine(S, '#58a6ff', `Now $${S.toFixed(2)}`);
-        // Zero line
-        const yZero = y.getPixelForValue(0);
-        ctx.save();
-        ctx.strokeStyle = '#30363d';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([]);
-        ctx.beginPath();
-        ctx.moveTo(chart.chartArea.left, yZero);
-        ctx.lineTo(chart.chartArea.right, yZero);
-        ctx.stroke();
-        ctx.restore();
+        computed.forEach(c => drawV(c.K, c.color, `K${c.label[0]}$${c.K}`));
+        drawV(S, '#58a6ff', `Spot $${S.toFixed(2)}`);
+        // zero line
+        const y0 = y.getPixelForValue(0);
+        ctx.save(); ctx.strokeStyle='#30363d'; ctx.lineWidth=1; ctx.setLineDash([]);
+        ctx.beginPath(); ctx.moveTo(chartArea.left,y0); ctx.lineTo(chartArea.right,y0); ctx.stroke(); ctx.restore();
       }
     }]
   });
 }
 
-// ─── Theta Decay Chart ───────────────────────────────────────────────────────
-function renderThetaChart(S, K, dte, r, iv, collectedPremium, contracts) {
+// ── Theta Decay Chart ─────────────────────────────────────────────────────
+function renderThetaChart(computed, S, T, r, sigma, DTE) {
   const ctx = document.getElementById('thetaChart').getContext('2d');
-  if (thetaChartInst) thetaChartInst.destroy();
+  if (charts.theta) charts.theta.destroy();
 
-  const days = [], vals = [], profits = [];
-  for (let d = dte; d >= 0; d--) {
-    const T = d / 365;
-    const bs = blackScholesPut(S, K, T, r, iv);
-    const putPrice = T > 0 ? bs.price : Math.max(0, K - S);
-    const unrealizedPnl = (collectedPremium - putPrice) * 100 * contracts;
-    days.push(`${dte - d}d`);
-    vals.push(+putPrice.toFixed(3));
-    profits.push(+unrealizedPnl.toFixed(2));
+  const days = Array.from({length: DTE+1}, (_,i) => `${i}d`);
+  const datasets = computed.map(c => ({
+    label: c.label,
+    data: Array.from({length: DTE+1}, (_,i) => {
+      const t = (DTE - i) / 365;
+      return t > 0 ? +bsPut(S, c.K, t, r, sigma).price.toFixed(3) : +Math.max(0,c.K-S).toFixed(3);
+    }),
+    borderColor: c.color,
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    pointRadius: 0,
+    tension: 0.3,
+  }));
+
+  charts.theta = new Chart(ctx, {
+    type: 'line',
+    data: { labels: days, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
+      plugins: {
+        legend: { labels: { color: '#8b949e', font: { size: 11 } } },
+        tooltip: { backgroundColor:'#161b22', borderColor:'#30363d', borderWidth:1, titleColor:'#8b949e', bodyColor:'#e6edf3' }
+      },
+      scales: {
+        x: { grid:{color:'#1c2330'}, ticks:{color:'#8b949e',maxTicksLimit:8} },
+        y: { grid:{color:'#1c2330'}, ticks:{color:'#8b949e',callback:v=>`$${v.toFixed(2)}`} }
+      }
+    }
+  });
+}
+
+// ── ROC & POP Spectrum Charts ─────────────────────────────────────────────
+function renderRocPopCharts(S, T, r, sigma, DTE, contracts) {
+  ['roc','pop'].forEach(id => { if (charts[id]) charts[id].destroy(); });
+
+  const deltaRange = [], rocs = [], pops = [], strikes = [];
+  for (let d = -0.05; d >= -0.60; d -= 0.025) {
+    const K = strikeFromDelta(S, d, T, r, sigma);
+    const bs = bsPut(S, K, T, r, sigma);
+    const P = bs.price;
+    const be = K - P;
+    const roc = (P / K) * 100 * (365 / DTE);
+    const pop = normCDF((Math.log(S / be) - (r - 0.5*sigma*sigma)*T) / (sigma*Math.sqrt(T))) * 100;
+    deltaRange.push(d.toFixed(2));
+    rocs.push(+roc.toFixed(2));
+    pops.push(+pop.toFixed(1));
+    strikes.push(K);
   }
 
-  const grad = ctx.createLinearGradient(0, 0, 0, 300);
-  grad.addColorStop(0, 'rgba(88,166,255,0.3)');
-  grad.addColorStop(1, 'rgba(88,166,255,0.02)');
+  const stratMarkers = STRATEGIES.map(s => {
+    const K = strikeFromDelta(S, s.targetDelta, T, r, sigma);
+    const bs = bsPut(S, K, T, r, sigma);
+    const P = bs.price;
+    const be = K - P;
+    const roc = (P / K) * 100 * (365 / DTE);
+    const pop = normCDF((Math.log(S / be) - (r - 0.5*sigma*sigma)*T) / (sigma*Math.sqrt(T))) * 100;
+    return { ...s, roc, pop };
+  });
 
-  thetaChartInst = new Chart(ctx, {
+  // ROC chart
+  const ctxR = document.getElementById('rocChart').getContext('2d');
+  charts.roc = new Chart(ctxR, {
     type: 'line',
     data: {
-      labels: days,
+      labels: deltaRange,
       datasets: [
-        {
-          label: 'Put Price',
-          data: vals,
-          borderColor: '#58a6ff',
-          backgroundColor: grad,
-          borderWidth: 2,
-          pointRadius: 0,
-          fill: true,
-          tension: 0.3,
-          yAxisID: 'y',
-        },
-        {
-          label: 'Unrealized P&L',
-          data: profits,
-          borderColor: '#3fb950',
-          backgroundColor: 'transparent',
-          borderWidth: 1.5,
-          pointRadius: 0,
-          borderDash: [4, 3],
-          tension: 0.3,
-          yAxisID: 'y2',
-        }
+        { label: 'Annualized ROC', data: rocs, borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.1)', borderWidth: 2, pointRadius: 0, fill: true, tension: 0.3 },
+        ...stratMarkers.map(s => ({
+          label: s.label, data: deltaRange.map((d,i) => Math.abs(parseFloat(d) - Math.abs(s.targetDelta)) < 0.015 ? rocs[i] : null),
+          borderColor: s.color, backgroundColor: s.color, borderWidth: 0, pointRadius: 7, pointStyle: 'circle', showLine: false,
+        }))
       ]
     },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      animation: { duration: 400 },
-      plugins: {
-        legend: {
-          labels: { color: '#8b949e', font: { size: 11 } }
-        },
-        tooltip: {
-          backgroundColor: '#161b22', borderColor: '#30363d', borderWidth: 1,
-          titleColor: '#8b949e', bodyColor: '#e6edf3',
-        }
-      },
-      scales: {
-        x: {
-          grid: { color: CHART_DEFAULTS.grid },
-          ticks: { color: '#8b949e', maxTicksLimit: 8 }
-        },
-        y: {
-          grid: { color: CHART_DEFAULTS.grid },
-          ticks: { color: '#58a6ff', callback: v => `$${v.toFixed(2)}` },
-          position: 'left',
-        },
-        y2: {
-          grid: { display: false },
-          ticks: { color: '#3fb950', callback: v => `$${v.toFixed(0)}` },
-          position: 'right',
-        }
-      }
-    }
+    options: rocPopOptions('Annualized ROC (%)', v => `${v.toFixed(1)}%`)
   });
-}
 
-// ─── ROC vs Strike Distance Chart ────────────────────────────────────────────
-function renderRocChart(S, dte, r, iv, collectedPremium, contracts) {
-  const ctx = document.getElementById('rocChart').getContext('2d');
-  if (rocChartInst) rocChartInst.destroy();
-  if (!S) return;
-
-  const distances = [], rocs = [];
-  const T = dte / 365;
-  for (let pct = -0.15; pct <= 0.02; pct += 0.01) {
-    const K = Math.round(S * (1 + pct) / 0.5) * 0.5;
-    const bs = blackScholesPut(S, K, T, r, iv);
-    const prem = bs.price;
-    const roc = (prem / K) * 100;
-    distances.push(`${(pct * 100).toFixed(0)}%`);
-    rocs.push(+roc.toFixed(3));
-  }
-
-  rocChartInst = new Chart(ctx, {
-    type: 'bar',
+  // POP chart
+  const ctxP = document.getElementById('popChart').getContext('2d');
+  charts.pop = new Chart(ctxP, {
+    type: 'line',
     data: {
-      labels: distances,
-      datasets: [{
-        label: 'ROC %',
-        data: rocs,
-        backgroundColor: rocs.map((_, i) => {
-          const pct = -0.15 + i * 0.01;
-          if (pct >= -0.03) return 'rgba(248,81,73,0.7)';
-          if (pct >= -0.07) return 'rgba(210,153,34,0.7)';
-          return 'rgba(63,185,80,0.7)';
-        }),
-        borderRadius: 3,
-      }]
+      labels: deltaRange,
+      datasets: [
+        { label: 'Prob of Profit', data: pops, borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,0.1)', borderWidth: 2, pointRadius: 0, fill: true, tension: 0.3 },
+        ...stratMarkers.map(s => ({
+          label: s.label, data: deltaRange.map((d,i) => Math.abs(parseFloat(d) - Math.abs(s.targetDelta)) < 0.015 ? pops[i] : null),
+          borderColor: s.color, backgroundColor: s.color, borderWidth: 0, pointRadius: 7, pointStyle: 'circle', showLine: false,
+        }))
+      ]
     },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      animation: { duration: 400 },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: '#161b22', borderColor: '#30363d', borderWidth: 1,
-          titleColor: '#8b949e', bodyColor: '#e6edf3',
-          callbacks: { label: item => `ROC: ${item.raw.toFixed(2)}%` }
-        }
-      },
-      scales: {
-        x: { grid: { color: CHART_DEFAULTS.grid }, ticks: { color: '#8b949e', maxTicksLimit: 8 } },
-        y: { grid: { color: CHART_DEFAULTS.grid }, ticks: { color: '#8b949e', callback: v => `${v.toFixed(1)}%` } }
-      }
-    }
+    options: rocPopOptions('Prob of Profit (%)', v => `${v.toFixed(1)}%`)
   });
 }
 
-// ─── Scenarios Table ──────────────────────────────────────────────────────────
-function renderScenarios(S, K, P, contracts, capitalRequired) {
-  const breakEven = K - P;
-  const scenarios = [
-    { name: 'Crash (−20%)', price: S ? S * 0.80 : K * 0.75 },
-    { name: 'Bear (−15%)', price: S ? S * 0.85 : K * 0.80 },
-    { name: 'Pullback (−10%)', price: S ? S * 0.90 : K * 0.90 },
-    { name: 'Mild Drop (−5%)', price: S ? S * 0.95 : K * 0.95 },
-    { name: 'Flat', price: S || K },
-    { name: 'Rally (+5%)', price: S ? S * 1.05 : K * 1.05 },
-    { name: 'Bull (+10%)', price: S ? S * 1.10 : K * 1.10 },
-  ];
+function rocPopOptions(yLabel, fmt) {
+  return {
+    responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
+    plugins: {
+      legend: { labels: { color: '#8b949e', font: { size: 11 } } },
+      tooltip: { backgroundColor:'#161b22', borderColor:'#30363d', borderWidth:1, titleColor:'#8b949e', bodyColor:'#e6edf3',
+        callbacks: { label: item => `${item.dataset.label}: ${fmt(item.raw)}` }
+      }
+    },
+    scales: {
+      x: { grid:{color:'#1c2330'}, ticks:{color:'#8b949e'}, title:{display:true,text:'Put Delta',color:'#8b949e',font:{size:10}} },
+      y: { grid:{color:'#1c2330'}, ticks:{color:'#8b949e',callback:fmt} }
+    }
+  };
+}
 
+// ── Scenarios Table ──────────────────────────────────────────────────────
+function renderScenarios(computed, S) {
+  const scenarios = [
+    { name: 'Crash −20%',    pct: -0.20 },
+    { name: 'Bear  −15%',    pct: -0.15 },
+    { name: 'Drop  −10%',    pct: -0.10 },
+    { name: 'Dip   −5%',     pct: -0.05 },
+    { name: 'Flat   0%',     pct:  0.00 },
+    { name: 'Rally +5%',     pct:  0.05 },
+    { name: 'Bull +10%',     pct:  0.10 },
+  ];
   const tbody = document.getElementById('scenariosTbody');
   tbody.innerHTML = scenarios.map(sc => {
-    const price = sc.price;
-    const move = S ? ((price - S) / S) * 100 : null;
-    const pnlPer = price >= K ? P * 100 : (price - breakEven) * 100;
-    const totalPnl = pnlPer * contracts;
-    const roc = (totalPnl / capitalRequired) * 100;
-    const pnlClass = totalPnl >= 0 ? 'td-green' : 'td-red';
-    const moveClass = move === null ? '' : move >= 0 ? 'td-green' : 'td-red';
-    let result = '';
-    if (price >= K) result = '<span class="td-green">✓ Expire Worthless</span>';
-    else if (price >= breakEven) result = '<span class="td-yellow">~ Near Breakeven</span>';
-    else result = '<span class="td-red">✗ Assigned / Loss</span>';
-    return `
-      <tr>
-        <td>${sc.name}</td>
-        <td class="td-blue">$${price.toFixed(2)}</td>
-        <td class="${moveClass}">${move !== null ? (move >= 0 ? '+' : '') + move.toFixed(1) + '%' : '—'}</td>
-        <td class="${pnlClass}">${pnlPer >= 0 ? '+' : ''}$${pnlPer.toFixed(2)}</td>
-        <td class="${pnlClass}">${totalPnl >= 0 ? '+' : ''}$${totalPnl.toFixed(2)}</td>
-        <td class="${pnlClass}">${roc >= 0 ? '+' : ''}${roc.toFixed(2)}%</td>
-        <td>${result}</td>
-      </tr>`;
+    const price = S * (1 + sc.pct);
+    const cols = computed.map(c => {
+      const pnl = price >= c.K ? c.P*100*c.contracts : (price - c.be)*100*c.contracts;
+      return { pnl, result: price >= c.K ? 'Expires ✓' : price >= c.be ? '~ Near B/E' : 'Assigned ✗' };
+    });
+    const moveCls = sc.pct >= 0 ? 'td-g' : 'td-r';
+    return `<tr>
+      <td>${sc.name}</td>
+      <td class="td-b">$${price.toFixed(2)}</td>
+      <td class="${moveCls}">${sc.pct>=0?'+':''}${(sc.pct*100).toFixed(0)}%</td>
+      ${cols.map(c=>`<td class="${c.pnl>=0?'td-g':'td-r'}">${c.pnl>=0?'+':''}$${c.pnl.toFixed(2)}</td>`).join('')}
+      ${cols.map(c=>`<td class="${c.result.includes('✓')?'td-g':c.result.includes('~')?'td-y':'td-r'}">${c.result}</td>`).join('')}
+    </tr>`;
   }).join('');
 }
 
-// ─── Alerts ───────────────────────────────────────────────────────────────────
-function showAlert(msg) {
-  const box = document.getElementById('alertBox');
-  box.textContent = '⚠ ' + msg;
-  box.style.display = 'block';
-}
-function hideAlert() {
-  document.getElementById('alertBox').style.display = 'none';
+// ── Price Fetch ───────────────────────────────────────────────────────────
+async function fetchPrice() {
+  setStatus('loading', 'Fetching…');
+  const avKey = localStorage.getItem('av_api_key');
+  const sources = [
+    { fn: fetchViaAllOrigins, label: 'Yahoo Finance' },
+    { fn: fetchViaCodeTabs,   label: 'Yahoo Finance' },
+    { fn: fetchViaThingProxy, label: 'Yahoo Finance' },
+    { fn: fetchViaAlt,        label: 'Yahoo Finance' },
+    ...(avKey ? [{ fn: () => fetchAlphaVantage(avKey), label: 'Alpha Vantage' }] : []),
+  ];
+  for (const src of sources) {
+    try {
+      const data = await src.fn();
+      if (data?.price > 0) {
+        currentPrice = data.price;
+        renderPrice(data);
+        setStatus('live', `Live · ${src.label}`);
+        calculate();
+        return;
+      }
+    } catch (_) {}
+  }
+  setStatus('error', 'Price unavailable — enter via 🔑 or type below');
+  showAlert('Could not auto-fetch IWM price. Options: (1) click 🔑 API Key and add a free Alpha Vantage key from alphavantage.co, or (2) type the price in the manual override below.');
+  showManualOverride();
 }
 
-// ─── API Key management ───────────────────────────────────────────────────────
+function showManualOverride() {
+  if (document.getElementById('manualPriceRow')) return;
+  const bar = document.querySelector('.config-bar');
+  const row = document.createElement('div');
+  row.id = 'manualPriceRow';
+  row.className = 'cfg-field';
+  row.innerHTML = `<label>Manual IWM Price ($)</label><input type="number" id="manualPrice" placeholder="e.g. 215.00" step="0.01" onchange="applyManualPrice(this.value)" />`;
+  bar.insertBefore(row, bar.firstChild);
+}
+
+function applyManualPrice(val) {
+  const p = parseFloat(val);
+  if (p > 0) { currentPrice = p; setStatus('live', 'Manual entry'); calculate(); }
+}
+
+async function fetchViaAllOrigins() {
+  const url = 'https://query1.finance.yahoo.com/v8/finance/chart/IWM?interval=1d&range=1d';
+  const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(9000) });
+  if (!res.ok) throw new Error(res.status);
+  return parseYahooChart(await res.json());
+}
+async function fetchViaCodeTabs() {
+  const url = 'https://query1.finance.yahoo.com/v7/finance/quote?symbols=IWM';
+  const res = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(9000) });
+  if (!res.ok) throw new Error(res.status);
+  const j = await res.json();
+  const q = j?.quoteResponse?.result?.[0];
+  if (!q?.regularMarketPrice) throw new Error('no data');
+  return { price: q.regularMarketPrice, change: q.regularMarketChange??0, changePct: q.regularMarketChangePercent??0, time: q.regularMarketTime ? new Date(q.regularMarketTime*1000) : new Date() };
+}
+async function fetchViaThingProxy() {
+  const url = 'https://query1.finance.yahoo.com/v8/finance/chart/IWM?interval=1d&range=1d';
+  const res = await fetch(`https://thingproxy.freeboard.io/fetch/${url}`, { signal: AbortSignal.timeout(9000) });
+  if (!res.ok) throw new Error(res.status);
+  return parseYahooChart(await res.json());
+}
+async function fetchViaAlt() {
+  const url = 'https://query2.finance.yahoo.com/v8/finance/chart/IWM?interval=1d&range=1d';
+  const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(9000) });
+  if (!res.ok) throw new Error(res.status);
+  const wrapper = await res.json();
+  return parseYahooChart(JSON.parse(wrapper.contents));
+}
+async function fetchAlphaVantage(apiKey) {
+  const res = await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=IWM&apikey=${apiKey}`, { signal: AbortSignal.timeout(10000) });
+  if (!res.ok) throw new Error(res.status);
+  const j = await res.json();
+  const q = j?.['Global Quote'];
+  if (!q?.['05. price']) throw new Error('no data');
+  return { price: parseFloat(q['05. price']), change: parseFloat(q['09. change']), changePct: parseFloat(q['10. change percent']), time: new Date() };
+}
+function parseYahooChart(json) {
+  const meta = json?.chart?.result?.[0]?.meta;
+  if (!meta?.regularMarketPrice) throw new Error('no meta');
+  const price = meta.regularMarketPrice;
+  const prev  = meta.chartPreviousClose || meta.previousClose || price;
+  return { price, change: price-prev, changePct: ((price-prev)/prev)*100, time: meta.regularMarketTime ? new Date(meta.regularMarketTime*1000) : new Date() };
+}
+
+function renderPrice(data) {
+  document.getElementById('livePrice').textContent = `$${data.price.toFixed(2)}`;
+  const sign = data.change >= 0 ? '+' : '';
+  const cls  = data.change >= 0 ? 'pos' : 'neg';
+  document.getElementById('priceChange').innerHTML = `<span class="${cls}">${sign}${data.change.toFixed(2)} (${sign}${data.changePct.toFixed(2)}%)</span>`;
+  if (data.time) document.getElementById('priceTime').textContent = `As of ${data.time.toLocaleTimeString()}`;
+}
+function setStatus(type, msg) {
+  const dot = document.getElementById('statusDot');
+  dot.className = 'status-dot' + (type==='live'?' live':type==='error'?' error':'');
+  document.getElementById('statusText').textContent = msg;
+}
+function showAlert(msg) { const b=document.getElementById('alertBox'); b.textContent='⚠ '+msg; b.style.display='block'; }
+function hideAlert() { document.getElementById('alertBox').style.display='none'; }
+
 function setApiKey() {
   const existing = localStorage.getItem('av_api_key') || '';
-  const key = prompt(
-    'Enter your free Alpha Vantage API key.\n(Get one free at alphavantage.co — takes 30 seconds)\n\nLeave blank to clear.',
-    existing
-  );
-  if (key === null) return; // cancelled
-  if (key.trim() === '') {
-    localStorage.removeItem('av_api_key');
-    alert('API key cleared.');
-  } else {
-    localStorage.setItem('av_api_key', key.trim());
-    fetchPrice();
-  }
+  const key = prompt('Enter your free Alpha Vantage API key.\n(Free at alphavantage.co — no credit card)\n\nLeave blank to clear.', existing);
+  if (key === null) return;
+  if (key.trim() === '') { localStorage.removeItem('av_api_key'); alert('Key cleared.'); }
+  else { localStorage.setItem('av_api_key', key.trim()); fetchPrice(); }
 }
 
-// ─── Manual price override ────────────────────────────────────────────────────
-document.getElementById('inpUnderlying').addEventListener('change', function () {
-  const v = parseFloat(this.value);
-  if (v > 0) { currentPrice = v; buildStrikePresets(v); }
-});
+// Auto-recalculate when config changes
+['cfgDTE','cfgIV','cfgContracts','cfgRFR'].forEach(id =>
+  document.getElementById(id).addEventListener('change', () => { if (currentPrice) calculate(); })
+);
 
-// ─── Init ─────────────────────────────────────────────────────────────────────
+// Boot
 fetchPrice();
 </script>
 </body>
