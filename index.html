@@ -341,6 +341,7 @@
         <option value="TSLA">TSLA</option>
         <option value="AMZN">AMZN</option>
         <option value="META">META</option>
+        <option value="SPMO">SPMO</option>
       </optgroup>
     </select>
   </div>
@@ -372,11 +373,19 @@
     <input type="number" id="cfgMarginRate" value="6.5" step="0.1" min="0"
            title="Annual interest rate charged by broker on borrowed capital." />
   </div>
+  <div class="cfg-divider"></div>
+  <div class="cfg-field">
+    <label>VIX <span class="cfg-tag">Auto</span></label>
+    <input type="number" id="cfgVIX" value="" placeholder="auto" step="0.1" min="0"
+           title="CBOE Volatility Index — auto-fetched or enter manually to update strategy recommendation."
+           onchange="if(currentPrice) calculate()" style="width:90px;" />
+  </div>
   <button class="recalc-btn" onclick="calculate()">Recalculate</button>
   <div class="cfg-note">Strikes &amp; premiums auto-calculated via Black-Scholes at target delta.</div>
 </div>
 
 <main>
+  <div id="vixBanner"></div>
   <div id="alertBox" class="alert-box"></div>
 
   <!-- 3 strategy cards -->
@@ -472,9 +481,10 @@
 
   <!-- ── Strategy Tabs ── -->
   <div class="strat-tabs">
-    <button class="strat-tab active" id="tab-wheel"    onclick="switchTab('wheel')">⚙ The Wheel — If Assigned</button>
-    <button class="strat-tab"        id="tab-buywrite" onclick="switchTab('buywrite')">📈 Buy+Write — Buy Shares &amp; Sell CC</button>
-    <button class="strat-tab"        id="tab-compare"  onclick="switchTab('compare')">⚖ Side-by-Side Comparison</button>
+    <button class="strat-tab active" id="tab-wheel"       onclick="switchTab('wheel')">⚙ The Wheel — If Assigned</button>
+    <button class="strat-tab"        id="tab-buywrite"   onclick="switchTab('buywrite')">📈 Buy+Write — Buy Shares &amp; Sell CC</button>
+    <button class="strat-tab"        id="tab-compare"    onclick="switchTab('compare')">⚖ Side-by-Side Comparison</button>
+    <button class="strat-tab"        id="tab-coveredcall" onclick="switchTab('coveredcall')" style="border-color:var(--purple);color:var(--purple);">📊 Covered Call Only</button>
   </div>
 
   <!-- Wheel tab -->
@@ -518,6 +528,22 @@
     <div id="compareSection" style="margin-bottom:8px;"></div>
   </div>
 
+  <!-- Covered Call Only tab -->
+  <div id="tab-content-coveredcall" class="tab-content" style="display:none;">
+    <div class="wheel-header">
+      <div class="wheel-flow">
+        <div class="wf-step wf-cc">① Own Shares</div>
+        <div class="wf-arrow">→</div>
+        <div class="wf-step wf-csp">② Sell Call OTM</div>
+        <div class="wf-arrow">→</div>
+        <div class="wf-step wf-expire">Expires Worthless<br><span>Keep premium · Sell CC again</span></div>
+        <div class="wf-arrow" style="opacity:.3">↺</div>
+        <div class="wf-step wf-called">Called Away<br><span>Shares sold at CC strike</span></div>
+      </div>
+    </div>
+    <div id="coveredcallSection" style="margin-bottom:8px;"></div>
+  </div>
+
   <!-- Scenarios -->
   <div class="scenarios-card">
     <h3>Scenario Analysis at Expiration</h3>
@@ -551,6 +577,7 @@
 // ── State ────────────────────────────────────────────────────────────────────
 let currentPrice = null;
 let currentTicker = 'IWM';
+let currentVIX = null;
 let charts = {};
 
 // Ticker metadata: name, description, default IV suggestion
@@ -567,6 +594,7 @@ const TICKER_INFO = {
   'TSLA': { name: 'Tesla Inc.',                     desc: 'EV / Energy · Very High IV',   defaultIV: 55 },
   'AMZN': { name: 'Amazon.com Inc.',                desc: 'E-Commerce / Cloud',           defaultIV: 28 },
   'META': { name: 'Meta Platforms Inc.',            desc: 'Social Media / AI',            defaultIV: 30 },
+  'SPMO': { name: 'SPDR Portfolio S&P 500 Momentum ETF', desc: 'S&P 500 Momentum Factor',  defaultIV: 18 },
 };
 
 function changeTicker(ticker) {
@@ -709,6 +737,11 @@ function calculate() {
              delta: bs.delta, gamma: bs.gamma, theta: bs.theta, vega: bs.vega };
   });
 
+  // VIX — prefer manual override, fall back to auto-fetched
+  const vixInput = parseFloat(document.getElementById('cfgVIX').value);
+  const vix = (!isNaN(vixInput) && vixInput > 0) ? vixInput : currentVIX;
+  renderVIXBanner(vix);
+
   computed.forEach(c => renderStratCard(c));
   computed.forEach(c => renderGreeks(c));
   renderPnLChart(computed, S);
@@ -717,6 +750,7 @@ function calculate() {
   renderWheelSection(computed, S, T, r, sigma, DTE);
   const bwData = renderBuyWriteSection(S, T, r, sigma, DTE, contracts);
   renderCompareSection(computed, bwData, S, T, r, sigma, DTE, contracts);
+  renderCCTab(S, T, r, sigma, DTE, contracts);
   renderScenarios(computed, S);
   renderRiskDashboard(computed, S);
 }
@@ -1093,9 +1127,15 @@ function renderScenarios(computed, S) {
 
 // ── Tab switching ─────────────────────────────────────────────────────────
 function switchTab(name) {
-  ['wheel','buywrite','compare'].forEach(t => {
+  ['wheel','buywrite','compare','coveredcall'].forEach(t => {
     document.getElementById(`tab-content-${t}`).style.display = t === name ? '' : 'none';
     document.getElementById(`tab-${t}`).classList.toggle('active', t === name);
+    // Restore purple color on inactive coveredcall tab
+    if (t === 'coveredcall') {
+      const btn = document.getElementById('tab-coveredcall');
+      if (t !== name) { btn.style.color = 'var(--purple)'; btn.style.borderColor = 'var(--purple)'; }
+      else { btn.style.color = 'var(--blue)'; btn.style.borderColor = ''; }
+    }
   });
 }
 
@@ -1819,9 +1859,322 @@ function renderRiskDashboard(computed, S) {
     </div>`;
 }
 
+// ── Covered Call Only Tab ─────────────────────────────────────────────────
+function renderCCTab(S, T, r, sigma, DTE, contracts) {
+  const f  = (v, d=2) => isNaN(v) || !isFinite(v) ? '—' : v.toFixed(d);
+  const fd = (v, d=2) => (v>=0?'+$':'-$') + Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+
+  const costBasisInput = parseFloat(document.getElementById('cfgCCBasis')?.value);
+  const costBasis = (!isNaN(costBasisInput) && costBasisInput > 0) ? costBasisInput : S;
+  const unrealized = (S - costBasis) * 100 * contracts;
+  const unrealColor = unrealized >= 0 ? '#3fb950' : '#f85149';
+
+  const CC_STRATS = [
+    { id:'ag', label:'Aggressive', targetDelta: 0.40, color:'#f85149', desc:'High premium · Cap upside at lower strike' },
+    { id:'mo', label:'Moderate',   targetDelta: 0.25, color:'#d29922', desc:'Balanced premium · Moderate upside room' },
+    { id:'ba', label:'Balanced',   targetDelta: 0.15, color:'#3fb950', desc:'Lower premium · More upside potential' },
+  ];
+
+  const cards = CC_STRATS.map(strat => {
+    const K             = callStrikeFromDelta(S, strat.targetDelta, T, r, sigma);
+    const cc            = bsCall(S, K, T, r, sigma);
+    const P             = Math.max(0.01, cc.price);
+    const be            = S - P;
+    const effectiveBasis = costBasis - P;
+    const maxProfitIfCalled = (K - costBasis + P) * 100 * contracts;
+    const rocOnBasis    = (P / costBasis) * 100;
+    const annROC        = rocOnBasis * (365 / DTE);
+    const distPct       = ((K - S) / S) * 100;
+    const pctProtection = (P / S) * 100;
+    return { strat, K, P, be, effectiveBasis, maxProfitIfCalled, rocOnBasis, annROC,
+             distPct, pctProtection, delta: cc.delta, theta: cc.theta };
+  });
+
+  const cardsHTML = cards.map(({strat:c, K, P, be, effectiveBasis, maxProfitIfCalled, rocOnBasis, annROC, distPct, pctProtection, delta, theta}) => `
+    <div class="bw-card">
+      <div class="bw-header" style="border-left:4px solid ${c.color}">
+        <div>
+          <div style="font-size:15px;font-weight:700;color:${c.color}">${c.label}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${c.desc}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:10px;color:var(--muted)">CALL DELTA</div>
+          <div style="font-size:22px;font-weight:700;color:${c.color};border:2px solid ${c.color};padding:2px 10px;border-radius:8px;background:${c.color}11">+${f(delta,2)}</div>
+        </div>
+      </div>
+      <div class="bw-cost-row">
+        <div class="wa-item">
+          <div class="lbl">Spot Price</div>
+          <div class="val td-b">$${f(S)}</div>
+        </div>
+        <div class="wa-item">
+          <div class="lbl">Your Cost Basis</div>
+          <div class="val" style="color:${unrealColor}">$${f(costBasis)}</div>
+        </div>
+        <div class="wa-item">
+          <div class="lbl">Unrealized P&L</div>
+          <div class="val" style="color:${unrealColor}">${fd(unrealized)}</div>
+        </div>
+      </div>
+      <div class="bw-metrics">
+        <div class="sm-row">
+          <div><div class="lbl">CC Strike</div><div class="val" style="color:${c.color}">$${f(K)}</div></div>
+          <div><div class="lbl">Premium</div><div class="val td-g">$${f(P)}</div></div>
+        </div>
+        <div class="sm-row">
+          <div><div class="lbl">Max P&L if Called Away</div><div class="val ${maxProfitIfCalled>=0?'td-g':'td-r'}">${fd(maxProfitIfCalled)}</div></div>
+          <div><div class="lbl">Effective Basis</div><div class="val td-y">$${f(effectiveBasis)}</div></div>
+        </div>
+        <div class="sm-cell">
+          <div class="lbl">ROC on Cost Basis</div>
+          <div class="val" style="color:${c.color}">${f(rocOnBasis,2)}%</div>
+          <div class="sub">${DTE}d cycle · CC income only</div>
+        </div>
+        <div class="sm-cell">
+          <div class="lbl">Annualized ROC</div>
+          <div class="val" style="color:${c.color}">${f(annROC,1)}%</div>
+          <div class="sub">CC income annualized</div>
+        </div>
+        <div class="sm-cell">
+          <div class="lbl">Strike Distance OTM</div>
+          <div class="val">${f(distPct,1)}%</div>
+          <div class="sub">Call above spot $${f(S)}</div>
+        </div>
+        <div class="sm-cell">
+          <div class="lbl">Downside Protection</div>
+          <div class="val td-g">$${f(P)}/sh</div>
+          <div class="sub">${f(pctProtection,2)}% of spot</div>
+        </div>
+        <div class="sm-row">
+          <div><div class="lbl">New Break-Even</div><div class="val td-y">$${f(be)}</div></div>
+          <div><div class="lbl">Theta / day</div><div class="val td-g">+$${f(Math.abs(theta)*100*contracts,2)}</div></div>
+        </div>
+      </div>
+    </div>`).join('');
+
+  document.getElementById('coveredcallSection').innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 20px;margin-bottom:14px;">
+      <div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;">
+        <div>
+          <label style="display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px;">Your Cost Basis / Share ($)</label>
+          <input type="number" id="cfgCCBasis" value="${costBasis.toFixed(2)}" step="0.01" min="0"
+                 style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;font-family:inherit;font-size:14px;padding:7px 11px;width:150px;outline:none;"
+                 placeholder="e.g. ${S.toFixed(2)}" onchange="if(currentPrice) calculate()" />
+        </div>
+        <div style="padding-bottom:6px;font-size:12px;color:var(--muted);line-height:1.7;">
+          Shares: <strong style="color:var(--text)">${100*contracts}</strong> &nbsp;·&nbsp;
+          Spot: <strong style="color:var(--blue)">$${f(S)}</strong> &nbsp;·&nbsp;
+          Position value: <strong style="color:var(--text)">$${(S*100*contracts).toLocaleString()}</strong>
+          ${costBasis !== S ? ` &nbsp;·&nbsp; Unrealized: <strong style="color:${unrealColor}">${fd(unrealized)}</strong>` : ''}
+        </div>
+      </div>
+    </div>
+    <div style="font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">
+      Covered Call Only — Sell Calls Against ${100*contracts} ${currentTicker} Shares
+    </div>
+    <div class="bw-cards">${cardsHTML}</div>
+    <div class="chart-card" style="margin-top:16px;">
+      <h3>Covered Call P&amp;L at Expiration vs Pure Stock Hold</h3>
+      <div style="position:relative;height:400px;"><canvas id="ccOnlyPnlChart"></canvas></div>
+      <div id="ccOnlyKeyLevels" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);"></div>
+    </div>`;
+
+  setTimeout(() => renderCCOnlyPnlChart(cards, S, contracts, costBasis), 0);
+}
+
+function renderCCOnlyPnlChart(cards, S, contracts, costBasis) {
+  const ctx = document.getElementById('ccOnlyPnlChart')?.getContext('2d');
+  if (!ctx) return;
+  if (charts.ccOnly) charts.ccOnly.destroy();
+
+  const lo = S * 0.72, hi = S * 1.22, steps = 200;
+  const labels = Array.from({length:steps+1}, (_,i) => (lo+(hi-lo)*(i/steps)).toFixed(2));
+
+  const stockDataset = {
+    label: `${currentTicker} Stock Only (basis $${costBasis.toFixed(2)})`,
+    data: labels.map(l => (parseFloat(l) - costBasis) * 100 * contracts),
+    borderColor: '#58a6ff', borderWidth: 1.5, borderDash: [6,4],
+    pointRadius: 0, backgroundColor: 'transparent', tension: 0,
+  };
+
+  const ccDatasets = cards.map(({strat:c, K, P}) => ({
+    label: `${c.label} CC K=$${K.toFixed(2)} P=$${P.toFixed(2)}`,
+    data: labels.map(l => {
+      const price = parseFloat(l);
+      return (price >= K ? (K - costBasis + P) : (price - costBasis + P)) * 100 * contracts;
+    }),
+    borderColor: c.color, backgroundColor: 'transparent', borderWidth: 2.5, pointRadius: 0, tension: 0,
+  }));
+
+  charts.ccOnly = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets: [stockDataset, ...ccDatasets] },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position:'top', labels:{color:'#e6edf3',font:{size:13,family:'monospace'},padding:20,boxWidth:28,boxHeight:3} },
+        tooltip: {
+          backgroundColor:'#1c2330', borderColor:'#30363d', borderWidth:1,
+          titleColor:'#8b949e', bodyColor:'#e6edf3', padding:12,
+          titleFont:{size:13,family:'monospace'}, bodyFont:{size:13,family:'monospace'},
+          callbacks: {
+            title: items => `${currentTicker} @ $${parseFloat(items[0].label).toFixed(2)}`,
+            label: item => `  ${item.dataset.label}: ${item.raw>=0?'+':''}$${item.raw.toFixed(2)}`,
+          }
+        }
+      },
+      scales: {
+        x: { grid:{color:'#1c2330'}, ticks:{color:'#adbac7',font:{size:12},maxTicksLimit:10,maxRotation:0,callback:(_,i)=>`$${parseFloat(labels[i]).toFixed(0)}`},
+             title:{display:true,text:`${currentTicker} Price at Expiration`,color:'#8b949e',font:{size:13},padding:{top:10}} },
+        y: { grid:{color:'#1c2330'}, ticks:{color:'#adbac7',font:{size:12},callback:v=>`${v>=0?'+':''}$${v.toLocaleString('en-US')}`},
+             title:{display:true,text:'Profit / Loss ($)',color:'#8b949e',font:{size:13}} }
+      }
+    },
+    plugins: [{
+      id:'cclines',
+      afterDraw(chart) {
+        const {ctx, scales:{x,y}, chartArea} = chart;
+        const y0 = y.getPixelForValue(0);
+        ctx.save(); ctx.strokeStyle='#555e6a'; ctx.lineWidth=1.5; ctx.setLineDash([]);
+        ctx.beginPath(); ctx.moveTo(chartArea.left,y0); ctx.lineTo(chartArea.right,y0); ctx.stroke(); ctx.restore();
+        const drawV = (price, color, dash) => {
+          const idx = labels.findIndex(l => parseFloat(l) >= price);
+          if (idx < 0) return;
+          const xp = x.getPixelForValue(idx);
+          ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=1.5; ctx.setLineDash(dash);
+          ctx.beginPath(); ctx.moveTo(xp,chartArea.top); ctx.lineTo(xp,chartArea.bottom); ctx.stroke(); ctx.restore();
+        };
+        drawV(S, '#58a6ff', []);
+        if (Math.abs(costBasis - S) > 0.01) drawV(costBasis, '#8b949e', [4,4]);
+        cards.forEach(({strat:c, K}) => drawV(K, c.color, [6,3]));
+      }
+    }]
+  });
+
+  const strip = document.getElementById('ccOnlyKeyLevels');
+  if (strip) {
+    const chip = (lbl, val, color) =>
+      `<div style="display:flex;align-items:center;gap:8px;background:${color}11;border:1px solid ${color}44;border-radius:6px;padding:6px 14px;">
+        <span style="width:20px;height:3px;background:${color};display:inline-block;border-radius:2px;flex-shrink:0;"></span>
+        <span style="font-size:12px;color:#8b949e;">${lbl}</span>
+        <span style="font-size:15px;font-weight:700;color:${color};">${val}</span>
+      </div>`;
+    strip.innerHTML = chip('Spot', `$${S.toFixed(2)}`, '#58a6ff') +
+      (Math.abs(costBasis - S) > 0.01 ? chip('Cost Basis', `$${costBasis.toFixed(2)}`, '#8b949e') : '') +
+      cards.map(({strat:c, K, P}) =>
+        chip(`${c.label} CC Strike`, `$${K.toFixed(2)}`, c.color) +
+        chip(`${c.label} B/E`, `$${(S - P).toFixed(2)}`, c.color)
+      ).join('');
+  }
+}
+
+// ── VIX Fetch ─────────────────────────────────────────────────────────────
+async function fetchVIX() {
+  try {
+    const url = 'https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?interval=1d&range=1d';
+    const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(6000) });
+    if (!res.ok) return;
+    const meta = (await res.json())?.chart?.result?.[0]?.meta;
+    if (meta?.regularMarketPrice > 0) {
+      currentVIX = meta.regularMarketPrice;
+      const vixEl = document.getElementById('cfgVIX');
+      if (vixEl && !vixEl.value) vixEl.value = currentVIX.toFixed(1);
+      if (currentPrice) renderVIXBanner(currentVIX);
+    }
+  } catch (_) {}
+}
+
+// ── VIX Recommendation ────────────────────────────────────────────────────
+function getVIXSignal(vix) {
+  if (!vix || isNaN(vix) || vix <= 0) return null;
+  if (vix < 15) return {
+    level: 'LOW', color: '#3fb950', bg: 'rgba(63,185,80,.07)', border: '#3fb95033',
+    label: 'Low Volatility',
+    suggest: 'CC',
+    reason: `VIX ${vix.toFixed(1)} — premiums are thin. CSP offers poor risk/reward at these levels. If you already own shares, Covered Calls are the better income play. Consider waiting for VIX > 18 before selling puts.`
+  };
+  if (vix < 18) return {
+    level: 'BELOW AVERAGE', color: '#58a6ff', bg: 'rgba(88,166,255,.07)', border: '#58a6ff33',
+    label: 'Below-Average Volatility',
+    suggest: 'NEUTRAL',
+    reason: `VIX ${vix.toFixed(1)} — slightly below average. Both strategies viable. CSP premiums are fair but not exceptional. Covered Calls on existing positions offer steady income without adding risk.`
+  };
+  if (vix < 22) return {
+    level: 'NORMAL', color: '#58a6ff', bg: 'rgba(88,166,255,.07)', border: '#58a6ff33',
+    label: 'Normal Range',
+    suggest: 'NEUTRAL',
+    reason: `VIX ${vix.toFixed(1)} — healthy range for both strategies. CSP at 0.20-0.30Δ captures good premium. Covered Calls at 0.25-0.30Δ also solid. Slight CSP edge on quality ETF pullbacks.`
+  };
+  if (vix < 28) return {
+    level: 'ELEVATED', color: '#d29922', bg: 'rgba(210,153,34,.07)', border: '#d2992233',
+    label: 'Elevated Volatility',
+    suggest: 'CSP',
+    reason: `VIX ${vix.toFixed(1)} — CSP premiums are attractive. Good time to sell puts at 0.20-0.25Δ on quality ETFs. Use strikes 5-10% OTM for cushion. Manage position if underlying drops toward strike.`
+  };
+  if (vix < 35) return {
+    level: 'HIGH', color: '#ffa657', bg: 'rgba(255,166,87,.07)', border: '#ffa65733',
+    label: 'High Volatility',
+    suggest: 'CSP',
+    reason: `VIX ${vix.toFixed(1)} — excellent CSP premiums but elevated assignment risk. Consider 0.15-0.20Δ (farther OTM) to maintain safety buffer. Reduce contract size. If already assigned, sell aggressive CCs to recover capital.`
+  };
+  if (vix < 45) return {
+    level: 'FEAR', color: '#f85149', bg: 'rgba(248,81,73,.07)', border: '#f8514944',
+    label: 'Market Fear',
+    suggest: 'CC',
+    reason: `VIX ${vix.toFixed(1)} — extreme fear. CSP assignment risk is very high; avoid selling new puts unless highly confident in the bottom. Favor Covered Calls on existing holdings. Use short DTE (7-14 days) and aggressive strikes to recover fast.`
+  };
+  return {
+    level: 'EXTREME', color: '#f85149', bg: 'rgba(248,81,73,.10)', border: '#f85149',
+    label: 'Extreme Fear / Crisis',
+    suggest: 'CC',
+    reason: `VIX ${vix.toFixed(1)} — crisis territory. Avoid new CSPs entirely. If holding shares from prior assignment, sell aggressive ATM/ITM CCs to recoup capital quickly. Drastically reduce all position sizes.`
+  };
+}
+
+function renderVIXBanner(vix) {
+  const el = document.getElementById('vixBanner');
+  if (!el) return;
+  const sig = getVIXSignal(vix);
+  if (!sig) { el.innerHTML = ''; return; }
+  const barFill = Math.min(100, (vix / 50) * 100).toFixed(0);
+  const suggestLabel = sig.suggest === 'CSP' ? '⚙ Sell CSP' : sig.suggest === 'CC' ? '📊 Sell Covered Calls' : '⚖ Either Strategy';
+  const suggestColor = sig.suggest === 'CSP' ? '#58a6ff' : sig.suggest === 'CC' ? '#bc8cff' : '#d29922';
+  el.innerHTML = `
+    <div style="background:${sig.bg};border:1px solid ${sig.border};border-radius:10px;padding:14px 20px;margin-bottom:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;">
+        <div style="display:flex;align-items:center;gap:20px;">
+          <div>
+            <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px;">CBOE VIX</div>
+            <div style="font-size:34px;font-weight:700;color:${sig.color};line-height:1">${vix.toFixed(1)}</div>
+            <div style="font-size:11px;font-weight:700;color:${sig.color};margin-top:3px;">${sig.label}</div>
+          </div>
+          <div style="width:1px;height:54px;background:var(--border);"></div>
+          <div>
+            <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">VIX GAUGE</div>
+            <div style="width:220px;background:var(--surface2);border-radius:4px;height:9px;overflow:hidden;">
+              <div style="width:${barFill}%;height:100%;background:linear-gradient(90deg,#3fb950 0%,#58a6ff 20%,#d29922 45%,#ffa657 65%,#f85149 100%);border-radius:4px;transition:width .4s;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-top:3px;width:220px;">
+              <span>10</span><span>15</span><span>22</span><span>30</span><span>40+</span>
+            </div>
+          </div>
+        </div>
+        <div style="background:${suggestColor}18;border:1px solid ${suggestColor}44;border-radius:8px;padding:10px 18px;text-align:center;min-width:180px;">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px;">Suggested Strategy</div>
+          <div style="font-size:17px;font-weight:700;color:${suggestColor}">${suggestLabel}</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid ${sig.border};font-size:12px;color:var(--muted);line-height:1.5;">
+        ${sig.reason}
+      </div>
+    </div>`;
+}
+
 // ── Price Fetch ───────────────────────────────────────────────────────────
 async function fetchPrice() {
   setStatus('loading', 'Fetching…');
+  fetchVIX();
   const avKey = localStorage.getItem('av_api_key');
   const sources = [
     { fn: fetchViaAllOrigins, label: 'Yahoo Finance' },
