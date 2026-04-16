@@ -1,0 +1,231 @@
+//@version=6
+indicator("Sector Rotation Dashboard", overlay=true)
+
+// ======= Inputs =======
+perfLen      = input.int(63,   "Performance Lookback (bars)", tooltip="63 on weekly ≈ 3 months")
+rsBaseLen    = input.int(52,   "RS Line Lookback (bars)")
+rsNewHighLen = input.int(10,   "RS New High Window (bars)", tooltip="RS made new high within this many bars")
+tablePos     = input.string("top_right", "Table Position", options=["top_right", "top_left", "bottom_right", "bottom_left"])
+
+// ======= Table position =======
+tPos = switch tablePos
+    "top_right"    => position.top_right
+    "top_left"     => position.top_left
+    "bottom_right" => position.bottom_right
+    "bottom_left"  => position.bottom_left
+
+// ======= SPY benchmark (1 security call) =======
+[spyC, spyPast] = request.security("SPY", timeframe.period, [close, close[perfLen]], ignore_invalid_symbol=true)
+pSPY = na(spyC) or na(spyPast) or spyPast == 0 ? na : (spyC - spyPast) / spyPast * 100
+
+// ======= Helper: 1 security call per ETF (returns close + perf) =======
+getData(sym) =>
+    [c, cPast] = request.security(sym, timeframe.period, [close, close[perfLen]], ignore_invalid_symbol=true)
+    perf = na(c) or na(cPast) or cPast == 0 ? na : (c - cPast) / cPast * 100
+    [c, perf]
+
+// ======= RS computation (no extra security calls — uses spyC from above) =======
+calcRS(etfClose) =>
+    rsLine = na(etfClose) or na(spyC) or spyC == 0 ? na : etfClose / spyC
+    rsHigh   = ta.highest(rsLine, rsBaseLen)
+    rsRecent = ta.highest(rsLine, rsNewHighLen)
+    isNewHigh = not na(rsLine) and not na(rsHigh) and rsRecent >= rsHigh
+    isNewHigh
+
+// ======= ETF data: 26 ETFs = 26 security calls + 1 SPY = 27 total (under 40 limit) =======
+
+// 1. SMH — Semis
+[c01, p01] = getData("SMH")
+rh01 = calcRS(c01)
+// 2. XSD — Semis Equal Weight
+[c02, p02] = getData("XSD")
+rh02 = calcRS(c02)
+// 3. SOXX — Semis Broad
+[c03, p03] = getData("SOXX")
+rh03 = calcRS(c03)
+// 4. XLK — Technology
+[c04, p04] = getData("XLK")
+rh04 = calcRS(c04)
+// 5. IGV — Software
+[c05, p05] = getData("IGV")
+rh05 = calcRS(c05)
+// 6. XBI — Biotech
+[c06, p06] = getData("XBI")
+rh06 = calcRS(c06)
+// 7. XLE — Energy
+[c07, p07] = getData("XLE")
+rh07 = calcRS(c07)
+// 8. XOP — Oil & Gas E&P
+[c08, p08] = getData("XOP")
+rh08 = calcRS(c08)
+// 9. XLI — Industrials
+[c09, p09] = getData("XLI")
+rh09 = calcRS(c09)
+// 10. XAR — Aero & Defense
+[c10, p10] = getData("XAR")
+rh10 = calcRS(c10)
+// 11. XLF — Financials
+[c11, p11] = getData("XLF")
+rh11 = calcRS(c11)
+// 12. XLV — Healthcare
+[c12, p12] = getData("XLV")
+rh12 = calcRS(c12)
+// 13. XLY — Consumer Discretionary
+[c13, p13] = getData("XLY")
+rh13 = calcRS(c13)
+// 14. XLP — Consumer Staples
+[c14, p14] = getData("XLP")
+rh14 = calcRS(c14)
+// 15. XLU — Utilities
+[c15, p15] = getData("XLU")
+rh15 = calcRS(c15)
+// 16. XLC — Comm Services
+[c16, p16] = getData("XLC")
+rh16 = calcRS(c16)
+// 17. XLB — Materials
+[c17, p17] = getData("XLB")
+rh17 = calcRS(c17)
+// 18. XLRE — Real Estate
+[c18, p18] = getData("XLRE")
+rh18 = calcRS(c18)
+// 19. URA — Uranium/Nuclear
+[c19, p19] = getData("URA")
+rh19 = calcRS(c19)
+// 20. GDX — Gold Miners
+[c20, p20] = getData("GDX")
+rh20 = calcRS(c20)
+// 21. IWM — Small Cap
+[c21, p21] = getData("IWM")
+rh21 = calcRS(c21)
+// 22. TAN — Solar
+[c22, p22] = getData("TAN")
+rh22 = calcRS(c22)
+// 23. AIQ — AI Theme
+[c23, p23] = getData("AIQ")
+rh23 = calcRS(c23)
+// 24. WCLD — Cloud
+[c24, p24] = getData("WCLD")
+rh24 = calcRS(c24)
+// 25. BUG — Cybersecurity
+[c25, p25] = getData("BUG")
+rh25 = calcRS(c25)
+// 26. ITB — Homebuilders
+[c26, p26] = getData("ITB")
+rh26 = calcRS(c26)
+
+// ======= Labels, sector names =======
+l01 = "SMH",  l02 = "XSD",  l03 = "SOXX", l04 = "XLK",  l05 = "IGV",  l06 = "XBI"
+l07 = "XLE",  l08 = "XOP",  l09 = "XLI",  l10 = "XAR",  l11 = "XLF",  l12 = "XLV"
+l13 = "XLY",  l14 = "XLP",  l15 = "XLU",  l16 = "XLC",  l17 = "XLB",  l18 = "XLRE"
+l19 = "URA",  l20 = "GDX",  l21 = "IWM",  l22 = "TAN",  l23 = "AIQ",  l24 = "WCLD"
+l25 = "BUG",  l26 = "ITB"
+
+s01 = "Semis",         s02 = "Semis EW",      s03 = "Semis Broad",   s04 = "Technology"
+s05 = "Software",      s06 = "Biotech",       s07 = "Energy",        s08 = "Oil & Gas E&P"
+s09 = "Industrials",   s10 = "Aero & Defense", s11 = "Financials",   s12 = "Healthcare"
+s13 = "Cons Disc",     s14 = "Cons Staples",  s15 = "Utilities",     s16 = "Comm Svcs"
+s17 = "Materials",     s18 = "Real Estate",   s19 = "Uranium/Nuclear", s20 = "Gold Miners"
+s21 = "Small Cap",     s22 = "Solar",         s23 = "AI Theme",      s24 = "Cloud"
+s25 = "Cybersecurity", s26 = "Homebuilders"
+
+// ======= Sorting: build arrays and bubble sort by performance =======
+maxItems = 26
+
+var labels  = array.new_string(maxItems)
+var sectors = array.new_string(maxItems)
+var perfs   = array.new_float(maxItems)
+var rsHighs = array.new_bool(maxItems)
+
+if barstate.islast
+    array.set(labels, 0, l01),  array.set(sectors, 0, s01),  array.set(perfs, 0, p01),  array.set(rsHighs, 0, rh01)
+    array.set(labels, 1, l02),  array.set(sectors, 1, s02),  array.set(perfs, 1, p02),  array.set(rsHighs, 1, rh02)
+    array.set(labels, 2, l03),  array.set(sectors, 2, s03),  array.set(perfs, 2, p03),  array.set(rsHighs, 2, rh03)
+    array.set(labels, 3, l04),  array.set(sectors, 3, s04),  array.set(perfs, 3, p04),  array.set(rsHighs, 3, rh04)
+    array.set(labels, 4, l05),  array.set(sectors, 4, s05),  array.set(perfs, 4, p05),  array.set(rsHighs, 4, rh05)
+    array.set(labels, 5, l06),  array.set(sectors, 5, s06),  array.set(perfs, 5, p06),  array.set(rsHighs, 5, rh06)
+    array.set(labels, 6, l07),  array.set(sectors, 6, s07),  array.set(perfs, 6, p07),  array.set(rsHighs, 6, rh07)
+    array.set(labels, 7, l08),  array.set(sectors, 7, s08),  array.set(perfs, 7, p08),  array.set(rsHighs, 7, rh08)
+    array.set(labels, 8, l09),  array.set(sectors, 8, s09),  array.set(perfs, 8, p09),  array.set(rsHighs, 8, rh09)
+    array.set(labels, 9, l10),  array.set(sectors, 9, s10),  array.set(perfs, 9, p10),  array.set(rsHighs, 9, rh10)
+    array.set(labels, 10, l11), array.set(sectors, 10, s11), array.set(perfs, 10, p11), array.set(rsHighs, 10, rh11)
+    array.set(labels, 11, l12), array.set(sectors, 11, s12), array.set(perfs, 11, p12), array.set(rsHighs, 11, rh12)
+    array.set(labels, 12, l13), array.set(sectors, 12, s13), array.set(perfs, 12, p13), array.set(rsHighs, 12, rh13)
+    array.set(labels, 13, l14), array.set(sectors, 13, s14), array.set(perfs, 13, p14), array.set(rsHighs, 13, rh14)
+    array.set(labels, 14, l15), array.set(sectors, 14, s15), array.set(perfs, 14, p15), array.set(rsHighs, 14, rh15)
+    array.set(labels, 15, l16), array.set(sectors, 15, s16), array.set(perfs, 15, p16), array.set(rsHighs, 15, rh16)
+    array.set(labels, 16, l17), array.set(sectors, 16, s17), array.set(perfs, 16, p17), array.set(rsHighs, 16, rh17)
+    array.set(labels, 17, l18), array.set(sectors, 17, s18), array.set(perfs, 17, p18), array.set(rsHighs, 17, rh18)
+    array.set(labels, 18, l19), array.set(sectors, 18, s19), array.set(perfs, 18, p19), array.set(rsHighs, 18, rh19)
+    array.set(labels, 19, l20), array.set(sectors, 19, s20), array.set(perfs, 19, p20), array.set(rsHighs, 19, rh20)
+    array.set(labels, 20, l21), array.set(sectors, 20, s21), array.set(perfs, 20, p21), array.set(rsHighs, 20, rh21)
+    array.set(labels, 21, l22), array.set(sectors, 21, s22), array.set(perfs, 21, p22), array.set(rsHighs, 21, rh22)
+    array.set(labels, 22, l23), array.set(sectors, 22, s23), array.set(perfs, 22, p23), array.set(rsHighs, 22, rh23)
+    array.set(labels, 23, l24), array.set(sectors, 23, s24), array.set(perfs, 23, p24), array.set(rsHighs, 23, rh24)
+    array.set(labels, 24, l25), array.set(sectors, 24, s25), array.set(perfs, 24, p25), array.set(rsHighs, 24, rh25)
+    array.set(labels, 25, l26), array.set(sectors, 25, s26), array.set(perfs, 25, p26), array.set(rsHighs, 25, rh26)
+
+    // Bubble sort descending by performance
+    for i = 0 to maxItems - 2
+        for j = 0 to maxItems - i - 2
+            pj  = array.get(perfs, j)
+            pj1 = array.get(perfs, j + 1)
+            valJ  = na(pj)  ? -9999.0 : pj
+            valJ1 = na(pj1) ? -9999.0 : pj1
+            if valJ < valJ1
+                tmpL = array.get(labels, j)
+                tmpS = array.get(sectors, j)
+                tmpP = array.get(perfs, j)
+                tmpR = array.get(rsHighs, j)
+                array.set(labels, j, array.get(labels, j + 1))
+                array.set(sectors, j, array.get(sectors, j + 1))
+                array.set(perfs, j, array.get(perfs, j + 1))
+                array.set(rsHighs, j, array.get(rsHighs, j + 1))
+                array.set(labels, j + 1, tmpL)
+                array.set(sectors, j + 1, tmpS)
+                array.set(perfs, j + 1, tmpP)
+                array.set(rsHighs, j + 1, tmpR)
+
+    // ======= Draw table =======
+    var tbl = table.new(tPos, 5, maxItems + 2, border_width=1)
+
+    // Header
+    table.cell(tbl, 0, 0, "RANK",    text_color=color.white, bgcolor=color.new(color.gray, 20), text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 1, 0, "ETF",     text_color=color.white, bgcolor=color.new(color.gray, 20), text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 2, 0, "SECTOR",  text_color=color.white, bgcolor=color.new(color.gray, 20), text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 3, 0, "3M PERF", text_color=color.white, bgcolor=color.new(color.gray, 20), text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 4, 0, "RS HIGH", text_color=color.white, bgcolor=color.new(color.gray, 20), text_size=size.small, text_halign=text.align_center)
+
+    // SPY benchmark row
+    spyBg = color.new(color.blue, 70)
+    table.cell(tbl, 0, 1, "REF",       text_color=color.white, bgcolor=spyBg, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 1, 1, "SPY",       text_color=color.white, bgcolor=spyBg, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 2, 1, "Benchmark", text_color=color.white, bgcolor=spyBg, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 3, 1, na(pSPY) ? "N/A" : str.tostring(pSPY, "#.##") + "%", text_color=color.white, bgcolor=spyBg, text_size=size.small, text_halign=text.align_center)
+    table.cell(tbl, 4, 1, "---",       text_color=color.white, bgcolor=spyBg, text_size=size.small, text_halign=text.align_center)
+
+    // Data rows
+    for i = 0 to maxItems - 1
+        row     = i + 2
+        perf    = array.get(perfs, i)
+        rsHigh  = array.get(rsHighs, i)
+        lbl     = array.get(labels, i)
+        sec     = array.get(sectors, i)
+        perfStr = na(perf) ? "N/A" : str.tostring(perf, "#.##") + "%"
+        rsStr   = rsHigh ? "NEW HIGH" : "---"
+
+        isTop3   = i <= 2
+        beatsSPY = not na(perf) and not na(pSPY) and perf > pSPY
+        isPos    = not na(perf) and perf > 0
+
+        bgCol  = isTop3 ? color.new(color.green, 60) : beatsSPY ? color.new(color.green, 80) : isPos ? color.new(color.orange, 80) : color.new(color.red, 75)
+        rsCol  = rsHigh ? color.lime : color.gray
+
+        table.cell(tbl, 0, row, str.tostring(i + 1), text_color=color.white, bgcolor=bgCol, text_size=size.small, text_halign=text.align_center)
+        table.cell(tbl, 1, row, lbl,                  text_color=color.white, bgcolor=bgCol, text_size=size.small, text_halign=text.align_center)
+        table.cell(tbl, 2, row, sec,                  text_color=color.white, bgcolor=bgCol, text_size=size.small, text_halign=text.align_left)
+        table.cell(tbl, 3, row, perfStr,               text_color=color.white, bgcolor=bgCol, text_size=size.small, text_halign=text.align_center)
+        table.cell(tbl, 4, row, rsStr,                 text_color=rsCol,       bgcolor=bgCol, text_size=size.small, text_halign=text.align_center)
+
+// ======= Alerts =======
+anyRSHigh = rh01 or rh02 or rh03 or rh04 or rh05 or rh06 or rh07 or rh08 or rh09 or rh10 or rh11 or rh12 or rh13 or rh14 or rh15 or rh16 or rh17 or rh18 or rh19 or rh20 or rh21 or rh22 or rh23 or rh24 or rh25 or rh26
+alertcondition(anyRSHigh, title="Sector RS New High", message="One or more sector ETFs have RS line at new highs — check rotation dashboard")
