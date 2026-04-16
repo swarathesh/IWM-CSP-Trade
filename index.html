@@ -325,25 +325,25 @@
 <div class="config-bar">
   <div class="cfg-field">
     <label>Ticker</label>
-    <select id="cfgTicker" onchange="changeTicker(this.value)" style="width:120px;">
-      <optgroup label="ETFs">
-        <option value="IWM"  selected>IWM</option>
-        <option value="QQQ">QQQ</option>
-        <option value="TQQQ">TQQQ</option>
-        <option value="SPY">SPY</option>
-        <option value="GLD">GLD</option>
-        <option value="DIA">DIA</option>
-      </optgroup>
-      <optgroup label="Stocks">
-        <option value="NVDA">NVDA</option>
-        <option value="AAPL">AAPL</option>
-        <option value="MSFT">MSFT</option>
-        <option value="TSLA">TSLA</option>
-        <option value="AMZN">AMZN</option>
-        <option value="META">META</option>
-        <option value="SPMO">SPMO</option>
-      </optgroup>
-    </select>
+    <input id="cfgTicker" list="tickerList" value="IWM" placeholder="e.g. AAPL"
+           style="width:120px; text-transform:uppercase;"
+           onchange="handleTickerInput(this)"
+           onkeydown="if(event.key==='Enter'){this.blur()}" />
+    <datalist id="tickerList">
+      <option value="IWM">iShares Russell 2000 ETF</option>
+      <option value="QQQ">Invesco Nasdaq-100 ETF</option>
+      <option value="TQQQ">ProShares UltraPro QQQ 3×</option>
+      <option value="SPY">SPDR S&P 500 ETF</option>
+      <option value="GLD">SPDR Gold Shares</option>
+      <option value="DIA">SPDR Dow Jones Ind. Avg. ETF</option>
+      <option value="NVDA">NVIDIA Corporation</option>
+      <option value="AAPL">Apple Inc.</option>
+      <option value="MSFT">Microsoft Corporation</option>
+      <option value="TSLA">Tesla Inc.</option>
+      <option value="AMZN">Amazon.com Inc.</option>
+      <option value="META">Meta Platforms Inc.</option>
+      <option value="SPMO">SPDR Portfolio S&P 500 Momentum ETF</option>
+    </datalist>
   </div>
   <div class="cfg-divider"></div>
   <div class="cfg-field">
@@ -596,6 +596,13 @@ const TICKER_INFO = {
   'META': { name: 'Meta Platforms Inc.',            desc: 'Social Media / AI',            defaultIV: 30 },
   'SPMO': { name: 'SPDR Portfolio S&P 500 Momentum ETF', desc: 'S&P 500 Momentum Factor',  defaultIV: 18 },
 };
+
+function handleTickerInput(el) {
+  const ticker = el.value.trim().toUpperCase();
+  if (!ticker) return;
+  el.value = ticker;
+  changeTicker(ticker);
+}
 
 function changeTicker(ticker) {
   currentTicker = ticker;
