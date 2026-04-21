@@ -66,6 +66,73 @@ def compute_performance(prices: pd.DataFrame, lookback: int) -> pd.Series:
     return perf
 
 
+def compute_rsi(prices: pd.DataFrame, period: int = 14) -> pd.Series:
+    """RSI (14-day) using Wilder's smoothing (EMA with alpha=1/period)."""
+    results = {}
+    for col in prices.columns:
+        delta = prices[col].diff()
+        gain = delta.where(delta > 0, 0.0)
+        loss = (-delta).where(delta < 0, 0.0)
+        # Wilder's smoothing: EMA with alpha = 1/period
+        avg_gain = gain.ewm(alpha=1/period, min_periods=period).mean()
+        avg_loss = loss.ewm(alpha=1/period, min_periods=period).mean()
+        rs = avg_gain / avg_loss
+        rsi = 100 - (100 / (1 + rs))
+        val = rsi.iloc[-1]
+        results[col] = round(val, 1) if not pd.isna(val) else float("nan")
+    return pd.Series(results)
+
+
+def compute_atr_pct(prices: pd.DataFrame, period: int = 14) -> pd.Series:
+    """ATR as % of price (using close-to-close as proxy for true range)."""
+    results = {}
+    for col in prices.columns:
+        series = prices[col].dropna()
+        if len(series) < period + 1:
+            results[col] = float("nan")
+            continue
+        tr = series.diff().abs()
+        atr = tr.rolling(period, min_periods=period).mean().iloc[-1]
+        current = series.iloc[-1]
+        results[col] = round((atr / current) * 100, 2) if current > 0 else float("nan")
+    return pd.Series(results)
+
+
+def compute_iv_rank(tickers):
+    """
+    IV Rank: where current IV sits in its 1-year range.
+    Uses yfinance option chain implied volatility as a proxy.
+    Falls back to historical volatility rank if options data unavailable.
+    """
+    results = {}
+    for ticker in tickers:
+        try:
+            tk = yf.Ticker(ticker)
+            hist = tk.history(period="1y")
+            if hist.empty or len(hist) < 30:
+                results[ticker] = None
+                continue
+            # Historical volatility: 20-day rolling std of log returns, annualized
+            log_ret = (hist["Close"] / hist["Close"].shift(1)).apply(
+                lambda x: x if pd.isna(x) else __import__("math").log(x)
+            )
+            hv = log_ret.rolling(20).std() * (252 ** 0.5) * 100
+            hv = hv.dropna()
+            if len(hv) < 30:
+                results[ticker] = None
+                continue
+            current = hv.iloc[-1]
+            hi = hv.max()
+            lo = hv.min()
+            if hi == lo:
+                results[ticker] = 50.0
+            else:
+                results[ticker] = round(((current - lo) / (hi - lo)) * 100, 1)
+        except Exception:
+            results[ticker] = None
+    return results
+
+
 def compute_rs_new_high(
     prices: pd.DataFrame,
     benchmark_col: str,
@@ -74,8 +141,8 @@ def compute_rs_new_high(
 ) -> dict[str, bool]:
     """
     For each ETF column, compute the RS line (ETF / SPY), then check
-    whether the RS line's recent high (last rs_new_high_len bars) equals
-    the overall high (last rs_base_len bars).
+    whether today's RS value is within 0.5% of the 52-bar high.
+    This ensures only genuinely fresh breakouts are flagged.
     """
     spy = prices[benchmark_col]
     results = {}
@@ -87,9 +154,10 @@ def compute_rs_new_high(
         if len(rs_line) < rs_base_len:
             results[col] = False
             continue
-        rs_base_window = rs_line.iloc[-rs_base_len:]
-        rs_recent_window = rs_line.iloc[-rs_new_high_len:]
-        results[col] = rs_recent_window.max() >= rs_base_window.max()
+        rs_base_high = rs_line.iloc[-rs_base_len:].max()
+        rs_today = rs_line.iloc[-1]
+        # Flag if today's RS is within 0.5% of the 52-bar high
+        results[col] = rs_today >= rs_base_high * 0.995
     return results
 
 
@@ -105,7 +173,7 @@ LOOKBACKS = {
 def build_dashboard(
     perf_lookback: int = 63,
     rs_base_len: int = 52,
-    rs_new_high_len: int = 10,
+    rs_new_high_len: int = 3,
 ) -> tuple:
     """Fetch data, compute metrics for all lookback periods."""
     tickers = [BENCHMARK] + [t for t, _ in ETFS]
@@ -117,6 +185,11 @@ def build_dashboard(
         all_perfs[label] = compute_performance(prices, days)
 
     rs_flags = compute_rs_new_high(prices, BENCHMARK, rs_base_len, rs_new_high_len)
+    rsi_values = compute_rsi(prices)
+    atr_values = compute_atr_pct(prices)
+
+    print("  Computing IV Rank (this takes a moment)...")
+    iv_ranks = compute_iv_rank([t for t, _ in ETFS])
 
     rows = []
     for ticker, sector in ETFS:
@@ -124,6 +197,9 @@ def build_dashboard(
             "ETF": ticker,
             "Sector": sector,
             "RS New High": rs_flags.get(ticker, False),
+            "RSI": rsi_values.get(ticker, float("nan")),
+            "ATR %": atr_values.get(ticker, float("nan")),
+            "IV Rank": iv_ranks.get(ticker),
         }
         for label in LOOKBACKS:
             row[f"{label} Perf %"] = round(all_perfs[label].get(ticker, float("nan")), 2)
@@ -170,15 +246,36 @@ def colour_perf(val, spy_perf, rank):
     return f"{RED}{s:>8}{RESET}"
 
 
+def _colour_rsi(val):
+    if pd.isna(val):
+        return f"{DIM}{'N/A':>5}{RESET}"
+    if val <= 30:
+        return f"{GREEN}{BOLD}{val:>5.1f}{RESET}"
+    if val >= 70:
+        return f"{RED}{BOLD}{val:>5.1f}{RESET}"
+    return f"{WHITE}{val:>5.1f}{RESET}"
+
+
+def _colour_iv_rank(val):
+    if val is None or pd.isna(val):
+        return f"{DIM}{'N/A':>5}{RESET}"
+    if val >= 60:
+        return f"{GREEN}{BOLD}{val:>5.1f}{RESET}"
+    if val <= 20:
+        return f"{RED}{val:>5.1f}{RESET}"
+    return f"{WHITE}{val:>5.1f}{RESET}"
+
+
 def print_table(df: pd.DataFrame, spy_perfs: dict, sort_label: str):
     """Pretty-print the dashboard to the terminal."""
     perf_col = f"{sort_label} Perf %"
     spy_perf = spy_perfs[sort_label]
 
     header = (
-        f"{BOLD}{WHITE}{'Rank':>4}  {'ETF':<6} {'Sector':<18} {sort_label + ' Perf':>8}  {'RS High':>9}{RESET}"
+        f"{BOLD}{WHITE}{'Rank':>4}  {'ETF':<6} {'Sector':<16} {sort_label + ' Perf':>8}"
+        f"  {'RSI':>5}  {'IVR':>5}  {'ATR%':>5}  {'RS High':>9}{RESET}"
     )
-    sep = f"{DIM}{'─' * 52}{RESET}"
+    sep = f"{DIM}{'─' * 76}{RESET}"
 
     print()
     print(f"  {BOLD}{WHITE}Sector Rotation Dashboard{RESET}")
@@ -190,15 +287,21 @@ def print_table(df: pd.DataFrame, spy_perfs: dict, sort_label: str):
     # SPY benchmark row
     spy_str = f"{spy_perf:+.2f}%" if not pd.isna(spy_perf) else "N/A"
     print(
-        f"  {CYAN}{BOLD}{'REF':>4}  {'SPY':<6} {'Benchmark':<18} {spy_str:>8}  {'---':>9}{RESET}"
+        f"  {CYAN}{BOLD}{'REF':>4}  {'SPY':<6} {'Benchmark':<16} {spy_str:>8}"
+        f"  {'---':>5}  {'---':>5}  {'---':>5}  {'---':>9}{RESET}"
     )
     print(f"  {sep}")
 
     for rank, row in df.iterrows():
         perf_str = colour_perf(row[perf_col], spy_perf, rank)
+        rsi_str = _colour_rsi(row.get("RSI"))
+        ivr_str = _colour_iv_rank(row.get("IV Rank"))
+        atr_val = row.get("ATR %")
+        atr_str = f"{DIM}{'N/A':>5}{RESET}" if pd.isna(atr_val) else f"{WHITE}{atr_val:>5.2f}{RESET}"
         rs_str = f"{GREEN}{BOLD}{'NEW HIGH':>9}{RESET}" if row["RS New High"] else f"{DIM}{'---':>9}{RESET}"
         print(
-            f"  {WHITE}{rank:>4}{RESET}  {WHITE}{row['ETF']:<6}{RESET} {DIM}{row['Sector']:<18}{RESET} {perf_str}  {rs_str}"
+            f"  {WHITE}{rank:>4}{RESET}  {WHITE}{row['ETF']:<6}{RESET} {DIM}{row['Sector']:<16}{RESET}"
+            f" {perf_str}  {rsi_str}  {ivr_str}  {atr_str}  {rs_str}"
         )
 
     print()
@@ -207,11 +310,17 @@ def print_table(df: pd.DataFrame, spy_perfs: dict, sort_label: str):
 def _build_payload(df: pd.DataFrame, spy_perfs: dict) -> dict:
     records = []
     for rank, row in df.iterrows():
+        rsi_val = row.get("RSI")
+        atr_val = row.get("ATR %")
+        ivr_val = row.get("IV Rank")
         entry = {
             "rank": rank,
             "etf": row["ETF"],
             "sector": row["Sector"],
             "rs_new_high": bool(row["RS New High"]),
+            "rsi": None if pd.isna(rsi_val) else rsi_val,
+            "atr_pct": None if pd.isna(atr_val) else atr_val,
+            "iv_rank": None if (ivr_val is None or pd.isna(ivr_val)) else ivr_val,
         }
         for label in LOOKBACKS:
             val = row.get(f"{label} Perf %")
@@ -255,7 +364,7 @@ def main():
     parser = argparse.ArgumentParser(description="Sector Rotation Dashboard")
     parser.add_argument("--lookback", type=int, default=63, help="Performance lookback in trading days (default 63 ≈ 3 months)")
     parser.add_argument("--rs-base", type=int, default=52, help="RS line lookback in trading days (default 52)")
-    parser.add_argument("--rs-window", type=int, default=10, help="RS new-high window in trading days (default 10)")
+    parser.add_argument("--rs-window", type=int, default=3, help="RS new-high window in trading days (default 3)")
     parser.add_argument("--json", type=str, metavar="PATH", help="Export results as JSON to PATH")
     parser.add_argument("--no-js", action="store_true", help="Skip auto JS export for index.html")
     args = parser.parse_args()

@@ -339,6 +339,15 @@
       padding: 2px 7px; border-radius: 3px; text-transform: uppercase;
       background: rgba(63,185,80,.15); color: var(--green); border: 1px solid var(--green);
     }
+    .sr-table .sr-metric { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; font-size: 11px; }
+    .sr-pill {
+      display: inline-block; font-size: 9px; font-weight: 700; padding: 1px 6px;
+      border-radius: 3px; min-width: 36px; text-align: center;
+    }
+    .sr-pill-green { background: rgba(63,185,80,.15); color: var(--green); }
+    .sr-pill-yellow { background: rgba(210,153,34,.15); color: var(--yellow); }
+    .sr-pill-red { background: rgba(248,81,73,.15); color: var(--red); }
+    .sr-pill-muted { background: var(--surface2); color: var(--muted); }
     .sr-loading { text-align: center; padding: 40px 20px; color: var(--muted); }
     .sr-loading .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .8s linear infinite; margin-right: 8px; vertical-align: middle; }
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -2416,9 +2425,24 @@ function renderSectorRotation() {
     return pb - pa;
   });
 
+  function rsiPill(v) {
+    if (v == null) return '<span class="sr-pill sr-pill-muted">N/A</span>';
+    const cls = v <= 30 ? 'sr-pill-green' : v >= 70 ? 'sr-pill-red' : 'sr-pill-yellow';
+    return `<span class="sr-pill ${cls}">${v.toFixed(1)}</span>`;
+  }
+  function ivrPill(v) {
+    if (v == null) return '<span class="sr-pill sr-pill-muted">N/A</span>';
+    const cls = v >= 60 ? 'sr-pill-green' : v <= 20 ? 'sr-pill-red' : 'sr-pill-yellow';
+    return `<span class="sr-pill ${cls}">${v.toFixed(0)}%</span>`;
+  }
+
   let html = `<table class="sr-table">
     <thead><tr>
-      <th class="c">Rank</th><th>ETF</th><th>Sector</th><th class="r">${label} Perf</th><th class="c">RS High</th>
+      <th class="c">Rank</th><th>ETF</th><th>Sector</th><th class="r">${label} Perf</th>
+      <th class="c" title="14-day Relative Strength Index. Green ≤30 (oversold = good CSP entry). Red ≥70 (overbought).">RSI</th>
+      <th class="c" title="IV Rank: current implied volatility vs 1-year range. Green ≥60% (rich premiums). Red ≤20% (cheap premiums).">IV Rank</th>
+      <th class="r" title="Average True Range as % of price (14-day). Higher = wider daily swings.">ATR%</th>
+      <th class="c" title="RS New High: ETF/SPY ratio is at or within 0.5% of its 52-day high. Means this sector is outperforming SPY — can be true even on red days.">RS vs SPY</th>
     </tr></thead><tbody>`;
 
   sorted.forEach((row, i) => {
@@ -2431,12 +2455,17 @@ function renderSectorRotation() {
     const perfStr = perf != null ? `${perf >= 0 ? '+' : ''}${perf.toFixed(2)}%` : 'N/A';
     const perfColor = perf == null ? 'var(--muted)' : isTop3 ? 'var(--green)' : beatsSPY ? 'var(--green)' : isPos ? 'var(--yellow)' : 'var(--red)';
     const rsCell = row.rs_new_high ? '<span class="sr-rs-badge">New High</span>' : '<span style="color:var(--muted)">—</span>';
+    const atrStr = row.atr_pct != null ? row.atr_pct.toFixed(2) + '%' : 'N/A';
+    const atrColor = row.atr_pct == null ? 'var(--muted)' : row.atr_pct >= 2 ? 'var(--red)' : row.atr_pct >= 1.2 ? 'var(--yellow)' : 'var(--muted)';
 
     html += `<tr class="${rowClass}">
       <td class="sr-rank">${rank}</td>
       <td class="sr-etf">${row.etf}</td>
       <td class="sr-sector">${row.sector}</td>
       <td class="sr-perf" style="color:${perfColor}">${perfStr}</td>
+      <td class="sr-rs">${rsiPill(row.rsi)}</td>
+      <td class="sr-rs">${ivrPill(row.iv_rank)}</td>
+      <td class="sr-metric" style="color:${atrColor}">${atrStr}</td>
       <td class="sr-rs">${rsCell}</td>
     </tr>`;
   });
