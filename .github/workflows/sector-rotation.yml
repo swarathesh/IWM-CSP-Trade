@@ -1,0 +1,37 @@
+name: Sector Rotation Update
+
+on:
+  schedule:
+    # 9:40 AM ET (EDT = UTC-4, EST = UTC-5)
+    # Run at both 13:40 and 14:40 UTC to cover daylight saving shifts
+    - cron: '40 13 * * 1-5'
+    - cron: '40 14 * * 1-5'
+  workflow_dispatch: # allow manual trigger
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install yfinance pandas
+
+      - name: Run sector rotation
+        run: python sector_rotation.py
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add sector_rotation_data.js sector_rotation.json
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update sector rotation data $(date -u +%Y-%m-%d)"
+            git push
+          fi

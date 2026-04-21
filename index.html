@@ -295,6 +295,61 @@
     .risk-summary { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
     .risk-rr-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
     @media (max-width:900px) { .risk-rr-grid { grid-template-columns: 1fr; } }
+
+    /* ── Sector Rotation ── */
+    .sr-section {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 18px 20px; margin-bottom: 20px;
+    }
+    .sr-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 16px; flex-wrap: wrap; gap: 10px;
+    }
+    .sr-header h3 {
+      font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .sr-header .sr-meta { font-size: 10px; color: var(--muted); }
+    .sr-benchmark {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: rgba(88,166,255,.08); border: 1px solid var(--blue); border-radius: 6px;
+      padding: 6px 14px; font-size: 12px; color: var(--blue); font-weight: 600;
+    }
+    .sr-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .sr-table th {
+      text-align: left; font-size: 10px; color: var(--muted); text-transform: uppercase;
+      letter-spacing: .5px; padding: 8px 10px; border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; background: var(--surface);
+    }
+    .sr-table th.r { text-align: right; }
+    .sr-table th.c { text-align: center; }
+    .sr-table td { padding: 7px 10px; border-bottom: 1px solid var(--surface2); }
+    .sr-table tr:last-child td { border-bottom: none; }
+    .sr-table tr:hover td { background: var(--surface2); }
+    .sr-table .sr-rank { font-weight: 700; text-align: center; width: 40px; }
+    .sr-table .sr-etf { font-weight: 700; }
+    .sr-table .sr-sector { color: var(--muted); }
+    .sr-table .sr-perf { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .sr-table .sr-rs { text-align: center; }
+    .sr-top3 td { background: rgba(63,185,80,.08); }
+    .sr-beat td { background: rgba(63,185,80,.04); }
+    .sr-neg td { background: rgba(248,81,73,.04); }
+    .sr-rs-badge {
+      display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: .5px;
+      padding: 2px 7px; border-radius: 3px; text-transform: uppercase;
+      background: rgba(63,185,80,.15); color: var(--green); border: 1px solid var(--green);
+    }
+    .sr-loading { text-align: center; padding: 40px 20px; color: var(--muted); }
+    .sr-loading .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .8s linear infinite; margin-right: 8px; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .sr-lookback-btns { display: flex; gap: 4px; }
+    .sr-lb-btn {
+      background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+      font-family: inherit; font-size: 11px; font-weight: 600;
+      padding: 4px 12px; border-radius: 5px; cursor: pointer; transition: all .15s;
+    }
+    .sr-lb-btn:hover { color: var(--text); border-color: var(--text); }
+    .sr-lb-btn.active { background: var(--blue); color: #0d1117; border-color: var(--blue); }
   </style>
 </head>
 <body>
@@ -569,10 +624,26 @@
 
   <!-- Risk Dashboard -->
   <div id="riskDashboard"></div>
+
+  <!-- Sector Rotation Dashboard -->
+  <div class="sr-section">
+    <div class="sr-header">
+      <h3>Sector Rotation Dashboard <span id="srSubtitle" style="font-weight:400;color:var(--muted);">— 3M Performance vs SPY</span></h3>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div class="sr-lookback-btns" id="srLookbackBtns"></div>
+        <div class="sr-benchmark" id="srBenchmark">SPY: —</div>
+        <span class="sr-meta" id="srTimestamp"></span>
+      </div>
+    </div>
+    <div id="srTableWrap">
+      <div class="sr-loading"><span class="spinner"></span>Loading sector data…</div>
+    </div>
+  </div>
 </main>
 
 <footer id="footerText">CSP Options Dashboard · Prices via Yahoo Finance · For educational purposes only · Not financial advice</footer>
 
+<script src="sector_rotation_data.js"></script>
 <script>
 // ── State ────────────────────────────────────────────────────────────────────
 let currentPrice = null;
@@ -2294,9 +2365,91 @@ function setApiKey() {
   document.getElementById(id).addEventListener('change', () => { if (currentPrice) calculate(); })
 );
 
+// ── Sector Rotation (loads from sector_rotation_data.js) ────────────────────
+let srCurrentLookback = '1d';
+
+function srInitLookbackButtons() {
+  const container = document.getElementById('srLookbackBtns');
+  if (typeof SR_DATA === 'undefined' || !SR_DATA.lookbacks) return;
+  container.innerHTML = '';
+  SR_DATA.lookbacks.forEach(lb => {
+    const btn = document.createElement('button');
+    btn.className = 'sr-lb-btn' + (lb.toLowerCase() === srCurrentLookback ? ' active' : '');
+    btn.textContent = lb;
+    btn.onclick = () => {
+      srCurrentLookback = lb.toLowerCase();
+      container.querySelectorAll('.sr-lb-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderSectorRotation();
+    };
+    container.appendChild(btn);
+  });
+}
+
+function renderSectorRotation() {
+  const wrap = document.getElementById('srTableWrap');
+  const bmEl = document.getElementById('srBenchmark');
+
+  if (typeof SR_DATA === 'undefined') {
+    wrap.innerHTML = `<div class="sr-loading" style="color:var(--yellow);">
+      Run <code style="background:var(--surface2);padding:3px 8px;border-radius:4px;font-size:13px;">python3 sector_rotation.py</code> to generate data, then refresh.
+    </div>`;
+    return;
+  }
+
+  const perfKey = `perf_${srCurrentLookback}`;
+  const label = srCurrentLookback.toUpperCase();
+  const spyPerf = SR_DATA.benchmark?.[perfKey];
+  bmEl.textContent = spyPerf != null ? `SPY: ${spyPerf >= 0 ? '+' : ''}${spyPerf.toFixed(2)}%` : 'SPY: N/A';
+  document.getElementById('srSubtitle').textContent = `— ${label} Performance vs SPY`;
+  document.getElementById('srTimestamp').textContent = SR_DATA.generated ? new Date(SR_DATA.generated).toLocaleString() : '';
+
+  if (!SR_DATA.sectors?.length) {
+    wrap.innerHTML = '<div class="sr-loading" style="color:var(--red);">No sector data in file.</div>';
+    return;
+  }
+
+  // Sort by selected lookback
+  const sorted = [...SR_DATA.sectors].sort((a, b) => {
+    const pa = a[perfKey] ?? -9999;
+    const pb = b[perfKey] ?? -9999;
+    return pb - pa;
+  });
+
+  let html = `<table class="sr-table">
+    <thead><tr>
+      <th class="c">Rank</th><th>ETF</th><th>Sector</th><th class="r">${label} Perf</th><th class="c">RS High</th>
+    </tr></thead><tbody>`;
+
+  sorted.forEach((row, i) => {
+    const rank = i + 1;
+    const perf = row[perfKey];
+    const isTop3 = rank <= 3;
+    const beatsSPY = perf != null && spyPerf != null && perf > spyPerf;
+    const isPos = perf != null && perf > 0;
+    const rowClass = isTop3 ? 'sr-top3' : beatsSPY ? 'sr-beat' : isPos ? 'sr-pos' : 'sr-neg';
+    const perfStr = perf != null ? `${perf >= 0 ? '+' : ''}${perf.toFixed(2)}%` : 'N/A';
+    const perfColor = perf == null ? 'var(--muted)' : isTop3 ? 'var(--green)' : beatsSPY ? 'var(--green)' : isPos ? 'var(--yellow)' : 'var(--red)';
+    const rsCell = row.rs_new_high ? '<span class="sr-rs-badge">New High</span>' : '<span style="color:var(--muted)">—</span>';
+
+    html += `<tr class="${rowClass}">
+      <td class="sr-rank">${rank}</td>
+      <td class="sr-etf">${row.etf}</td>
+      <td class="sr-sector">${row.sector}</td>
+      <td class="sr-perf" style="color:${perfColor}">${perfStr}</td>
+      <td class="sr-rs">${rsCell}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
 // Boot
 updateHeaderForTicker(currentTicker);
 fetchPrice();
+srInitLookbackButtons();
+renderSectorRotation();
 </script>
 </body>
 </html>
