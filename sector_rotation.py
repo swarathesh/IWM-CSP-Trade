@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Sector Rotation Dashboard
-Mirrors the TradingView Pine Script — ranks 26 sector ETFs by 3-month
+ Mirrors the TradingView Pine Script — ranks 28 sector ETFs by 3-month
 performance vs SPY and flags relative-strength new highs.
 """
 
@@ -38,6 +38,8 @@ ETFS = [
     ("IWM",  "Small Cap"),
     ("TAN",  "Solar"),
     ("AIQ",  "AI Theme"),
+    ("UFO",  "Space Theme"),
+    ("MARS", "Space Theme"),
     ("WCLD", "Cloud"),
     ("BUG",  "Cybersecurity"),
     ("ITB",  "Homebuilders"),

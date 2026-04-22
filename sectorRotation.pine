@@ -32,7 +32,7 @@ calcRS(etfClose) =>
     isNewHigh = not na(rsLine) and not na(rsHigh) and rsRecent >= rsHigh
     isNewHigh
 
-// ======= ETF data: 26 ETFs = 26 security calls + 1 SPY = 27 total (under 40 limit) =======
+// ======= ETF data: 28 ETFs = 28 security calls + 1 SPY = 29 total (under 40 limit) =======
 
 // 1. SMH — Semis
 [c01, p01] = getData("SMH")
@@ -103,33 +103,39 @@ rh22 = calcRS(c22)
 // 23. AIQ — AI Theme
 [c23, p23] = getData("AIQ")
 rh23 = calcRS(c23)
-// 24. WCLD — Cloud
-[c24, p24] = getData("WCLD")
+// 24. UFO — Space Theme
+[c24, p24] = getData("UFO")
 rh24 = calcRS(c24)
-// 25. BUG — Cybersecurity
-[c25, p25] = getData("BUG")
+// 25. MARS — Space Theme
+[c25, p25] = getData("MARS")
 rh25 = calcRS(c25)
-// 26. ITB — Homebuilders
-[c26, p26] = getData("ITB")
+// 26. WCLD — Cloud
+[c26, p26] = getData("WCLD")
 rh26 = calcRS(c26)
+// 27. BUG — Cybersecurity
+[c27, p27] = getData("BUG")
+rh27 = calcRS(c27)
+// 28. ITB — Homebuilders
+[c28, p28] = getData("ITB")
+rh28 = calcRS(c28)
 
 // ======= Labels, sector names =======
 l01 = "SMH",  l02 = "XSD",  l03 = "SOXX", l04 = "XLK",  l05 = "IGV",  l06 = "XBI"
 l07 = "XLE",  l08 = "XOP",  l09 = "XLI",  l10 = "XAR",  l11 = "XLF",  l12 = "XLV"
 l13 = "XLY",  l14 = "XLP",  l15 = "XLU",  l16 = "XLC",  l17 = "XLB",  l18 = "XLRE"
-l19 = "URA",  l20 = "GDX",  l21 = "IWM",  l22 = "TAN",  l23 = "AIQ",  l24 = "WCLD"
-l25 = "BUG",  l26 = "ITB"
+l19 = "URA",  l20 = "GDX",  l21 = "IWM",  l22 = "TAN",  l23 = "AIQ",  l24 = "UFO"
+l25 = "MARS", l26 = "WCLD", l27 = "BUG",  l28 = "ITB"
 
 s01 = "Semis",         s02 = "Semis EW",      s03 = "Semis Broad",   s04 = "Technology"
 s05 = "Software",      s06 = "Biotech",       s07 = "Energy",        s08 = "Oil & Gas E&P"
 s09 = "Industrials",   s10 = "Aero & Defense", s11 = "Financials",   s12 = "Healthcare"
 s13 = "Cons Disc",     s14 = "Cons Staples",  s15 = "Utilities",     s16 = "Comm Svcs"
 s17 = "Materials",     s18 = "Real Estate",   s19 = "Uranium/Nuclear", s20 = "Gold Miners"
-s21 = "Small Cap",     s22 = "Solar",         s23 = "AI Theme",      s24 = "Cloud"
-s25 = "Cybersecurity", s26 = "Homebuilders"
+s21 = "Small Cap",     s22 = "Solar",         s23 = "AI Theme",      s24 = "Space Theme"
+s25 = "Space Theme",   s26 = "Cloud",         s27 = "Cybersecurity", s28 = "Homebuilders"
 
 // ======= Sorting: build arrays and bubble sort by performance =======
-maxItems = 26
+maxItems = 28
 
 var labels  = array.new_string(maxItems)
 var sectors = array.new_string(maxItems)
@@ -163,6 +169,8 @@ if barstate.islast
     array.set(labels, 23, l24), array.set(sectors, 23, s24), array.set(perfs, 23, p24), array.set(rsHighs, 23, rh24)
     array.set(labels, 24, l25), array.set(sectors, 24, s25), array.set(perfs, 24, p25), array.set(rsHighs, 24, rh25)
     array.set(labels, 25, l26), array.set(sectors, 25, s26), array.set(perfs, 25, p26), array.set(rsHighs, 25, rh26)
+    array.set(labels, 26, l27), array.set(sectors, 26, s27), array.set(perfs, 26, p27), array.set(rsHighs, 26, rh27)
+    array.set(labels, 27, l28), array.set(sectors, 27, s28), array.set(perfs, 27, p28), array.set(rsHighs, 27, rh28)
 
     // Bubble sort descending by performance
     for i = 0 to maxItems - 2
@@ -227,5 +235,5 @@ if barstate.islast
         table.cell(tbl, 4, row, rsStr,                 text_color=rsCol,       bgcolor=bgCol, text_size=size.small, text_halign=text.align_center)
 
 // ======= Alerts =======
-anyRSHigh = rh01 or rh02 or rh03 or rh04 or rh05 or rh06 or rh07 or rh08 or rh09 or rh10 or rh11 or rh12 or rh13 or rh14 or rh15 or rh16 or rh17 or rh18 or rh19 or rh20 or rh21 or rh22 or rh23 or rh24 or rh25 or rh26
+anyRSHigh = rh01 or rh02 or rh03 or rh04 or rh05 or rh06 or rh07 or rh08 or rh09 or rh10 or rh11 or rh12 or rh13 or rh14 or rh15 or rh16 or rh17 or rh18 or rh19 or rh20 or rh21 or rh22 or rh23 or rh24 or rh25 or rh26 or rh27 or rh28
 alertcondition(anyRSHigh, title="Sector RS New High", message="One or more sector ETFs have RS line at new highs — check rotation dashboard")
