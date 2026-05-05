@@ -8,7 +8,7 @@ performance vs SPY and flags relative-strength new highs.
 import argparse
 import json
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import yfinance as yf
 import pandas as pd
@@ -335,7 +335,7 @@ def _build_payload(df: pd.DataFrame, spy_perfs: dict) -> dict:
         benchmark[f"perf_{label.lower()}"] = None if pd.isna(val) else val
 
     return {
-        "generated": datetime.now().isoformat(),
+        "generated": datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f') + 'Z',
         "lookbacks": list(LOOKBACKS.keys()),
         "benchmark": benchmark,
         "sectors": records,

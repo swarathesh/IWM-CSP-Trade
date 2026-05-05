@@ -3,9 +3,13 @@ name: Sector Rotation Update
 on:
   schedule:
     # 9:40 AM ET (EDT = UTC-4, EST = UTC-5)
-    # Run at both 13:40 and 14:40 UTC to cover daylight saving shifts
+    # Run at 13:40 and 14:40 UTC to cover daylight saving shifts.
+    # Also run at 15:40 and 16:40 UTC as fallbacks for GitHub Actions queue delays
+    # (scheduled runs often fire 1-2 hours late during peak periods).
     - cron: '40 13 * * 1-5'
     - cron: '40 14 * * 1-5'
+    - cron: '40 15 * * 1-5'
+    - cron: '40 16 * * 1-5'
   workflow_dispatch: # allow manual trigger
   push:
     branches:
