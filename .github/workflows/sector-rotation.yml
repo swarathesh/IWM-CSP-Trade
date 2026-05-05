@@ -6,6 +6,9 @@ on:
     # Run at both 13:40 and 14:40 UTC to cover daylight saving shifts
     - cron: '40 13 * * 1-5'
     - cron: '40 14 * * 1-5'
+  push:
+    branches:
+      - main
   workflow_dispatch: # allow manual trigger
 
 permissions:
