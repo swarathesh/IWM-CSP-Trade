@@ -3,6 +3,7 @@
 Sector Rotation Dashboard
 Mirrors the TradingView Pine Script — ranks 28 sector ETFs by 3-month
 performance vs SPY and flags relative-strength new highs.
+Last triggered: 2026-05-06
 """
 
 import argparse
