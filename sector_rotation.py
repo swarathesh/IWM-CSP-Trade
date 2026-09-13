@@ -44,6 +44,7 @@ ETFS = [
     ("WCLD", "Cloud"),
     ("BUG",  "Cybersecurity"),
     ("ITB",  "Homebuilders"),
+    ("BWET", "Water Theme"),
 ]
 
 BENCHMARK = "SPY"
