@@ -47,6 +47,9 @@ ETFS = [
 ]
 
 BENCHMARK = "SPY"
+MODEL_STATE_PATH = "sector_rotation_model_state.json"
+MODEL_VERSION = "markov-v1"
+ETF_TO_SECTOR = {ticker: sector for ticker, sector in ETFS}
 
 
 def fetch_prices(tickers: list[str], period: str = "1y") -> pd.DataFrame:
@@ -172,6 +175,156 @@ LOOKBACKS = {
     "1Y": 252,
 }
 
+ML_LOOKBACK = LOOKBACKS["3M"]
+
+
+def _build_leader_history(
+    prices: pd.DataFrame,
+    benchmark_col: str,
+    perf_lookback: int,
+) -> pd.DataFrame:
+    """Build daily leader series based on relative performance vs benchmark."""
+    etf_tickers = [t for t, _ in ETFS]
+    needed = [benchmark_col] + etf_tickers
+    available = [c for c in needed if c in prices.columns]
+    if benchmark_col not in available:
+        return pd.DataFrame(columns=["leader_etf", "leader_sector"])
+
+    frame = prices[available].dropna(how="all")
+    if len(frame) < perf_lookback + 2:
+        return pd.DataFrame(columns=["leader_etf", "leader_sector"])
+
+    perf = frame.pct_change(perf_lookback) * 100
+    spy_perf = perf[benchmark_col]
+    rel = pd.DataFrame(index=perf.index)
+    for ticker in etf_tickers:
+        if ticker in perf.columns:
+            rel[ticker] = perf[ticker] - spy_perf
+
+    rel = rel.dropna(how="all")
+    if rel.empty:
+        return pd.DataFrame(columns=["leader_etf", "leader_sector"])
+
+    leaders = rel.idxmax(axis=1).dropna()
+    if leaders.empty:
+        return pd.DataFrame(columns=["leader_etf", "leader_sector"])
+
+    history = pd.DataFrame({
+        "leader_etf": leaders,
+        "leader_sector": leaders.map(lambda t: ETF_TO_SECTOR.get(t, t)),
+    })
+    return history
+
+
+def _load_ml_state(path: str) -> dict:
+    """Load persisted transition model state."""
+    try:
+        with open(path) as f:
+            state = json.load(f)
+    except FileNotFoundError:
+        return {"version": MODEL_VERSION, "transition_counts": {}, "last_observed_date": None}
+    except Exception:
+        return {"version": MODEL_VERSION, "transition_counts": {}, "last_observed_date": None}
+
+    if not isinstance(state, dict):
+        return {"version": MODEL_VERSION, "transition_counts": {}, "last_observed_date": None}
+    state.setdefault("version", MODEL_VERSION)
+    state.setdefault("transition_counts", {})
+    state.setdefault("last_observed_date", None)
+    return state
+
+
+def _save_ml_state(path: str, state: dict) -> None:
+    """Persist transition model state."""
+    with open(path, "w") as f:
+        json.dump(state, f, indent=2)
+
+
+def _estimate_next_sector(leader_history: pd.DataFrame, state_path: str = MODEL_STATE_PATH) -> dict:
+    """
+    Learn transition probabilities between top sectors and predict next leader.
+    Uses an online Markov transition model that is updated each script run.
+    """
+    if leader_history.empty or len(leader_history) < 2:
+        return {
+            "model": MODEL_VERSION,
+            "status": "insufficient_data",
+            "message": "Need more historical data for prediction.",
+        }
+
+    state = _load_ml_state(state_path)
+    counts = state.get("transition_counts", {})
+    last_observed_date = state.get("last_observed_date")
+    new_samples = 0
+
+    leaders = leader_history["leader_etf"].tolist()
+    dates = [idx.strftime("%Y-%m-%d") for idx in leader_history.index]
+
+    for i in range(1, len(leaders)):
+        current_date = dates[i]
+        if last_observed_date and current_date <= last_observed_date:
+            continue
+        src = leaders[i - 1]
+        dst = leaders[i]
+        if src not in counts:
+            counts[src] = {}
+        counts[src][dst] = counts[src].get(dst, 0) + 1
+        new_samples += 1
+
+    state["transition_counts"] = counts
+    state["last_observed_date"] = dates[-1]
+    state["updated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    _save_ml_state(state_path, state)
+
+    current_leader = leaders[-1]
+    current_sector = ETF_TO_SECTOR.get(current_leader, current_leader)
+    transition_row = counts.get(current_leader, {})
+
+    if not transition_row:
+        global_counts = {}
+        for row in counts.values():
+            for dst, value in row.items():
+                global_counts[dst] = global_counts.get(dst, 0) + value
+        transition_row = global_counts
+
+    total = sum(transition_row.values())
+    if total <= 0:
+        return {
+            "model": MODEL_VERSION,
+            "status": "insufficient_data",
+            "message": "Model has no learned transitions yet.",
+            "current_leader": {"etf": current_leader, "sector": current_sector},
+            "new_samples": new_samples,
+            "total_samples": 0,
+        }
+
+    sorted_probs = sorted(transition_row.items(), key=lambda x: x[1], reverse=True)
+    top_predictions = [
+        {
+            "etf": ticker,
+            "sector": ETF_TO_SECTOR.get(ticker, ticker),
+            "probability": round((count / total) * 100, 2),
+            "transition_count": int(count),
+        }
+        for ticker, count in sorted_probs[:3]
+    ]
+
+    total_samples = sum(
+        count for row in counts.values() for count in row.values()
+    )
+
+    return {
+        "model": MODEL_VERSION,
+        "status": "ok",
+        "lookback_days": ML_LOOKBACK,
+        "current_leader": {"etf": current_leader, "sector": current_sector},
+        "predicted_next": top_predictions[0],
+        "top_predictions": top_predictions,
+        "new_samples": new_samples,
+        "total_samples": int(total_samples),
+        "state_file": state_path,
+    }
+
 
 def build_dashboard(
     perf_lookback: int = 63,
@@ -190,6 +343,8 @@ def build_dashboard(
     rs_flags = compute_rs_new_high(prices, BENCHMARK, rs_base_len, rs_new_high_len)
     rsi_values = compute_rsi(prices)
     atr_values = compute_atr_pct(prices)
+    leader_history = _build_leader_history(prices, BENCHMARK, perf_lookback=ML_LOOKBACK)
+    ml_prediction = _estimate_next_sector(leader_history, MODEL_STATE_PATH)
 
     print("  Computing IV Rank (this takes a moment)...")
     iv_ranks = compute_iv_rank([t for t, _ in ETFS])
@@ -219,7 +374,7 @@ def build_dashboard(
     for label in LOOKBACKS:
         spy_perfs[label] = round(all_perfs[label].get(BENCHMARK, float("nan")), 2)
 
-    return df, spy_perfs, sort_label
+    return df, spy_perfs, sort_label, ml_prediction
 
 
 # ── Terminal display with colour ──────────────────────────────────────────
@@ -310,7 +465,7 @@ def print_table(df: pd.DataFrame, spy_perfs: dict, sort_label: str):
     print()
 
 
-def _build_payload(df: pd.DataFrame, spy_perfs: dict) -> dict:
+def _build_payload(df: pd.DataFrame, spy_perfs: dict, ml_prediction: dict) -> dict:
     records = []
     for rank, row in df.iterrows():
         rsi_val = row.get("RSI")
@@ -340,20 +495,21 @@ def _build_payload(df: pd.DataFrame, spy_perfs: dict) -> dict:
         "lookbacks": list(LOOKBACKS.keys()),
         "benchmark": benchmark,
         "sectors": records,
+        "ml_prediction": ml_prediction,
     }
 
 
-def export_json(df: pd.DataFrame, spy_perfs: dict, path: str):
+def export_json(df: pd.DataFrame, spy_perfs: dict, ml_prediction: dict, path: str):
     """Export dashboard data as JSON."""
-    payload = _build_payload(df, spy_perfs)
+    payload = _build_payload(df, spy_perfs, ml_prediction)
     with open(path, "w") as f:
         json.dump(payload, f, indent=2)
     print(f"  Exported to {path}")
 
 
-def export_js(df: pd.DataFrame, spy_perfs: dict, path: str):
+def export_js(df: pd.DataFrame, spy_perfs: dict, ml_prediction: dict, path: str):
     """Export as a JS file that index.html can load via <script src>."""
-    payload = _build_payload(df, spy_perfs)
+    payload = _build_payload(df, spy_perfs, ml_prediction)
     with open(path, "w") as f:
         f.write("// Auto-generated by sector_rotation.py — do not edit\n")
         f.write("const SR_DATA = ")
@@ -372,19 +528,30 @@ def main():
     parser.add_argument("--no-js", action="store_true", help="Skip auto JS export for index.html")
     args = parser.parse_args()
 
-    df, spy_perfs, sort_label = build_dashboard(
+    df, spy_perfs, sort_label, ml_prediction = build_dashboard(
         perf_lookback=args.lookback,
         rs_base_len=args.rs_base,
         rs_new_high_len=args.rs_window,
     )
 
     print_table(df, spy_perfs, sort_label)
+    if ml_prediction.get("status") == "ok":
+        next_pick = ml_prediction.get("predicted_next", {})
+        current = ml_prediction.get("current_leader", {})
+        print(
+            "  ML Prediction:",
+            f"{current.get('etf', 'N/A')} → {next_pick.get('etf', 'N/A')}",
+            f"({next_pick.get('probability', 0):.2f}% confidence,",
+            f"{ml_prediction.get('total_samples', 0)} learned transitions)",
+        )
+    else:
+        print(f"  ML Prediction: {ml_prediction.get('message', 'Not available')}")
 
     if args.json:
-        export_json(df, spy_perfs, args.json)
+        export_json(df, spy_perfs, ml_prediction, args.json)
 
     if not args.no_js:
-        export_js(df, spy_perfs, "sector_rotation_data.js")
+        export_js(df, spy_perfs, ml_prediction, "sector_rotation_data.js")
 
 
 if __name__ == "__main__":
