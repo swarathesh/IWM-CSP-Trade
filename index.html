@@ -359,6 +359,21 @@
     }
     .sr-lb-btn:hover { color: var(--text); border-color: var(--text); }
     .sr-lb-btn.active { background: var(--blue); color: #0d1117; border-color: var(--blue); }
+    .sr-prediction {
+      margin-top: 14px; border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface2); padding: 12px 14px;
+    }
+    .sr-prediction h4 {
+      font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px;
+      margin-bottom: 8px;
+    }
+    .sr-prediction-main { font-size: 13px; font-weight: 700; color: var(--blue); margin-bottom: 8px; }
+    .sr-prediction-meta { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+    .sr-prediction-list { display: flex; flex-wrap: wrap; gap: 6px; }
+    .sr-prediction-pill {
+      font-size: 10px; padding: 3px 8px; border-radius: 999px;
+      border: 1px solid var(--border); background: rgba(88,166,255,.1); color: var(--text);
+    }
   </style>
 </head>
 <body>
@@ -647,6 +662,7 @@
     <div id="srTableWrap">
       <div class="sr-loading"><span class="spinner"></span>Loading sector data…</div>
     </div>
+    <div id="srPredictionWrap"></div>
   </div>
 </main>
 
@@ -2398,11 +2414,13 @@ function srInitLookbackButtons() {
 function renderSectorRotation() {
   const wrap = document.getElementById('srTableWrap');
   const bmEl = document.getElementById('srBenchmark');
+  const predictionWrap = document.getElementById('srPredictionWrap');
 
   if (typeof SR_DATA === 'undefined') {
     wrap.innerHTML = `<div class="sr-loading" style="color:var(--yellow);">
       Run <code style="background:var(--surface2);padding:3px 8px;border-radius:4px;font-size:13px;">python3 sector_rotation.py</code> to generate data, then refresh.
     </div>`;
+    predictionWrap.innerHTML = '';
     return;
   }
 
@@ -2472,6 +2490,34 @@ function renderSectorRotation() {
 
   html += '</tbody></table>';
   wrap.innerHTML = html;
+  renderSectorPrediction(SR_DATA.ml_prediction);
+}
+
+function renderSectorPrediction(prediction) {
+  const wrap = document.getElementById('srPredictionWrap');
+  if (!prediction || prediction.status !== 'ok') {
+    wrap.innerHTML = `<div class="sr-prediction">
+      <h4>ML Sector Prediction</h4>
+      <div class="sr-prediction-meta">${prediction?.message || 'Prediction unavailable.'}</div>
+    </div>`;
+    return;
+  }
+
+  const current = prediction.current_leader || {};
+  const next = prediction.predicted_next || {};
+  const tops = Array.isArray(prediction.top_predictions) ? prediction.top_predictions : [];
+  const topHtml = tops.map(p =>
+    `<span class="sr-prediction-pill">${p.etf} ${Number(p.probability || 0).toFixed(2)}%</span>`
+  ).join('');
+
+  wrap.innerHTML = `<div class="sr-prediction">
+    <h4>ML Sector Prediction</h4>
+    <div class="sr-prediction-main">${current.etf || 'N/A'} (${current.sector || '—'}) → ${next.etf || 'N/A'} (${next.sector || '—'})</div>
+    <div class="sr-prediction-meta">
+      Confidence: ${Number(next.probability || 0).toFixed(2)}% · Learned transitions: ${prediction.total_samples ?? 0} · Model: ${prediction.model || 'N/A'}
+    </div>
+    <div class="sr-prediction-list">${topHtml}</div>
+  </div>`;
 }
 
 // Boot
